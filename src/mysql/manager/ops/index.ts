@@ -1,0 +1,11 @@
+// 各类操作封装
+export * from './count'
+export * from './criteria'
+export * from './delete'
+export * from './exist'
+export * from './find'
+export * from './insert'
+export * from './modify'
+export * from './paginate'
+export * from './query'
+export * from './update'
