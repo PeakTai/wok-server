@@ -17,7 +17,17 @@
 
 ## Hello world
 
+安装：
+
+```
+npm i wok-server --save
+```
+
+入口文件：
+
 ```ts
+import { startWebServer } from 'wok-server'
+
 startWebServer({
   routers: {
     '/': async exchange => exchange.respondText('Hello world !')
