@@ -9,7 +9,10 @@
   },
   "keywords": [
     "web",
-    "server"
+    "http",
+    "app",
+    "server",
+    "framework"
   ],
   "files": [
     "types/",
