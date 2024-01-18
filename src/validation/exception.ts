@@ -1,7 +1,7 @@
 /**
  * 校验异常.
  */
-export class ValidationException {
+export class ValidationException extends Error {
   constructor(
     /**
      * 异常信息，如 “不能为空” 之类的.
@@ -19,16 +19,9 @@ export class ValidationException {
      * 值
      */
     readonly val: any
-  ) {}
-
-  /**
-   * 对错误的完整描述信息，用于日志记录.
-   */
-  desc() {
-    return `Field "${this.propertyPath}" failed to validate by validator ${this.validator} ，value：${this.val}，info：${this.errMsg}`
-  }
-
-  get message() {
-    return this.desc()
+  ) {
+    super(
+      `Field "${propertyPath}" failed to validate by validator ${validator} ，value：${val}，info：${errMsg}`
+    )
   }
 }
