@@ -36,7 +36,7 @@ export async function update<T>(
   // 值
   const values: any[] = [
     table.tableName,
-    ...columns.flatMap(col => [col, data[col] || null]),
+    ...columns.flatMap(col => [col, data[col]]),
     table.id,
     data[table.id]
   ]

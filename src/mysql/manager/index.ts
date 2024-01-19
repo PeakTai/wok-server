@@ -1,11 +1,10 @@
-import { TransactionOptions } from 'mongodb'
 import { Pool } from 'mysql2'
 import { MysqlConfig } from '../config'
+import { MysqlException } from '../exception'
 import { BaseMysqlManager } from './base'
 import { MysqlTxSession } from './tx'
-import { promiseGetConnection, promiseQuery } from './utils'
 import { MysqlStrictTxSession } from './tx-strict'
-import { MysqlException } from '../exception'
+import { promiseGetConnection, promiseQuery } from './utils'
 
 /**
  * mysql 管理器，封装数据库操作，提供方便使用的实体类操作方法.
