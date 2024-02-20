@@ -1,6 +1,7 @@
 import { IncomingHttpHeaders, OutgoingHttpHeaders, request } from 'http'
 import { startWebServer, stopWebServer } from '../../src'
 import { equal, ok } from 'assert'
+import { runTestAsync } from '../utils'
 
 interface RespInfo {
   status: number
@@ -35,32 +36,39 @@ async function get(path: string, headers?: OutgoingHttpHeaders): Promise<RespInf
 }
 
 describe('静态文件测试', () => {
-  before(async () => {
-    await startWebServer({
-      static: {
-        '/': { dir: 'test/mvc/static', cacheAge: 300 }
-      },
-      routers: {
-        '/api': async ex => ex.respondJson({ msg: '接口响应信息' }),
-        '/demo.txt': async ex => ex.respondText('这个会覆盖静态文件')
-      }
+  before(
+    runTestAsync(async () => {
+      await startWebServer({
+        static: {
+          '/': { dir: 'test/mvc/static', cacheAge: 300 }
+        },
+        routers: {
+          '/api': async ex => ex.respondJson({ msg: '接口响应信息' }),
+          '/demo.txt': async ex => ex.respondText('这个会覆盖静态文件')
+        }
+      })
     })
-  })
-  after(async () => {
-    await stopWebServer()
-    console.log('静态文件测试完成')
-  })
-  it('静态文件与路由优先级测试', async () => {
-    // 路由应该不受影响，并且路由优先
-    let res = await get('/api')
-    equal(res.status, 200)
-    let json = JSON.parse(res.buffer.toString('utf-8'))
-    equal(json.msg, '接口响应信息')
+  )
+  after(
+    runTestAsync(async () => {
+      await stopWebServer()
+      console.log('静态文件测试完成')
+    })
+  )
+  it(
+    '静态文件与路由优先级测试',
+    runTestAsync(async () => {
+      // 路由应该不受影响，并且路由优先
+      let res = await get('/api')
+      equal(res.status, 200)
+      let json = JSON.parse(res.buffer.toString('utf-8'))
+      equal(json.msg, '接口响应信息')
 
-    res = await get('/demo.txt')
-    equal(res.status, 200)
-    equal(res.buffer.toString('utf-8'), '这个会覆盖静态文件')
-  })
+      res = await get('/demo.txt')
+      equal(res.status, 200)
+      equal(res.buffer.toString('utf-8'), '这个会覆盖静态文件')
+    })
+  )
   it('静态文件 cache 缓存时间测试', async () => {
     const res = await get('/test1.txt')
     const text = res.buffer.toString('utf-8')
@@ -70,6 +78,7 @@ describe('静态文件测试', () => {
     ok(!!cacheControl)
     // Cache-Control: max-age=时长
     equal(cacheControl.trim(), 'max-age=300')
+    ok(res.headers['last-modified'])
   })
   it('静态文件 range 消息头测试', async () => {
     let res = await get('/l2-dir/Free_Test_Data_1MB_MP3.mp3')
@@ -129,4 +138,20 @@ describe('静态文件测试', () => {
     res = await get('/l2-dir')
     equal(res.status, 404)
   })
+  it(
+    '缓存校验',
+    runTestAsync(async () => {
+      let res = await get('/test1.txt')
+      equal(res.status, 200)
+      const modifiedTime = res.headers['last-modified']
+      ok(modifiedTime)
+
+      res = await get('/test1.txt', {
+        'if-modified-since': modifiedTime
+      })
+      equal(res.status, 304)
+      ok(res.headers['last-modified'])
+      equal(modifiedTime, res.headers['last-modified'])
+    })
+  )
 })

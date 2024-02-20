@@ -1,4 +1,5 @@
-import { existsSync, statSync } from 'fs'
+import { existsSync } from 'fs'
+import { stat } from 'fs/promises'
 import { IncomingMessage, Server, ServerResponse, createServer } from 'http'
 import { Socket } from 'net'
 import { networkInterfaces } from 'os'
@@ -113,7 +114,7 @@ async function handleRouter(
   const router = routers[path]
   if (!router) {
     // 路由找不不到，尝试静态文件
-    if (staticSettings.length) {
+    if ((exchange.request.method || '').toLowerCase() === 'get' && staticSettings.length) {
       await handleStatic(exchange, routers, path, staticSettings)
     } else {
       respond404(exchange, routers, path)
@@ -168,15 +169,15 @@ async function handleStatic(
     respond404(exchange, routers, path)
     return
   }
-  const stat = statSync(fullPath)
+  const statRes = await stat(fullPath)
   // 目录，寻找 index.html
-  if (stat.isDirectory()) {
+  if (statRes.isDirectory()) {
     const indexPath = resolve(fullPath, 'index.html')
     if (!existsSync(indexPath)) {
       respond404(exchange, routers, path)
       return
     }
-    const indexStat = statSync(indexPath)
+    const indexStat = await stat(indexPath)
     if (!indexStat.isFile()) {
       respond404(exchange, routers, path)
       return
@@ -192,7 +193,7 @@ async function handleStatic(
     return
   }
   // 文件直接渲染
-  if (stat.isFile()) {
+  if (statRes.isFile()) {
     // Cache-Control
     if (matchedSetting.cacheAge >= 0) {
       exchange.response.setHeader(
@@ -297,8 +298,8 @@ export async function startWebServer(opts: {
           `Static file configuration error，path ${dir} does not exist，config dir：${setting.dir}`
         )
       }
-      const stat = statSync(dir)
-      if (!stat.isDirectory()) {
+      const statRes = await stat(dir)
+      if (!statRes.isDirectory()) {
         throw new Error(
           `Static file configuration error，path ${dir} is not a directory，config dir：${setting.dir}`
         )
@@ -333,6 +334,7 @@ export async function startWebServer(opts: {
     interceptors.push(...opts.interceptors)
   }
   SERVER = createServer((req, res) => {
+    res.setHeader('Server', 'Wok Server')
     res.on('error', error => {
       // 如果响应流发生错误，只能把信息记录下来
       getLogger().error(`Response Error：${req.url}`, error)
@@ -358,7 +360,7 @@ export async function startWebServer(opts: {
   await new Promise<void>((resolve, reject) => {
     server.on('error', e => {
       if ((e as any).code === 'EADDRINUSE') {
-        reject(`端口号 ${config.port} 已经被占用`)
+        reject(`Port ${config.port} is already in use.`)
       } else {
         reject(e)
       }

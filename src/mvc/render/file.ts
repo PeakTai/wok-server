@@ -1,4 +1,5 @@
-import { createReadStream, existsSync, statSync } from 'fs'
+import { createReadStream, existsSync } from 'fs'
+import { stat } from 'fs/promises'
 import { IncomingMessage, ServerResponse } from 'http'
 import { renderError } from './json'
 import { basename } from 'path'
@@ -102,7 +103,7 @@ export async function renderFile(
   download = false
 ): Promise<void> {
   if (!existsSync(filePath)) {
-    renderError(response, '文件不存在', 404)
+    renderError(response, 'Cannot find file.', 404)
     return
   }
   const fileName = basename(filePath)
@@ -127,10 +128,31 @@ export async function renderFile(
   } else if (contentType) {
     response.setHeader('Content-Type', contentType)
   }
+  const statRes = await stat(filePath)
+  // 支持 If-Modified-Since
+  // 由于只是简单的文件映射，没有 etag，不能支持 If-None-Match
+  // 缓存校验只能支持时间的比对，修改时间是文件系统本来就有的
+  if (request.headers['if-modified-since']) {
+    const modifiedSince = new Date(request.headers['if-modified-since'])
+    // 判定日期是否有效
+    if (modifiedSince instanceof Date && !isNaN(modifiedSince.getTime())) {
+      // 比较更改日期，只精确到秒, UTC 格式只精确到秒，但是 mtime 是包含毫秒的
+      const { mtime } = statRes
+      mtime.setMilliseconds(0)
+      if (modifiedSince >= mtime) {
+        response.statusCode = 304
+        response.setHeader('Last-Modified', statRes.mtime.toUTCString())
+        response.end()
+        return
+      }
+    }
+  }
+
   // 支持 Range
   // https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Headers/Range
   const rangeHeader = request.headers['range']
   if (!rangeHeader) {
+    response.setHeader('Last-Modified', statRes.mtime.toUTCString())
     return streamFile(filePath, response)
   }
   // 解析，range 示例：bytes=200-1000, 2000-6576, 19000-
@@ -150,26 +172,25 @@ export async function renderFile(
   let start = strs[0] ? parseInt(strs[0], 10) : NaN
   let end = strs[1] ? parseInt(strs[1], 10) : NaN
   // 解析文件
-  const stat = statSync(filePath)
   if (isNaN(start) || start < 0) {
     // 范围不合法，返回 416
     renderError(response, `Range not satisfiable，start is ${start}`, 416)
     return
   }
   if (isNaN(end)) {
-    end = stat.size - 1
-  } else if (end > stat.size - 1) {
+    end = statRes.size - 1
+  } else if (end > statRes.size - 1) {
     // 范围不合法，返回 416
     renderError(
       response,
-      `Range not satisfiable，end must not be greater than ${stat.size - 1}`,
+      `Range not satisfiable，end must not be greater than ${statRes.size - 1}`,
       416
     )
     return
   }
   // 注：Range 和 Content-Range 还有 createReadStream 中的字节范围，都是前后全包含的
   // Content-Range: bytes 42-1233/1234
-  response.setHeader('Content-Range', `bytes ${start}-${end}/${stat.size}`)
+  response.setHeader('Content-Range', `bytes ${start}-${end}/${statRes.size}`)
   return streamFile(filePath, response, { start, end })
 }
 
