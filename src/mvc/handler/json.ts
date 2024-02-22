@@ -14,7 +14,7 @@ export function createJsonHandler<REQ, RES = void>(opts: {
   /**
    * 校验信息，可选，用于检查请求信息.对于一些特殊情况，无法使用校验器的，可以在 handle 中继续处理.
    */
-  validation?: ValidationOpts<REQ>
+  validation?: ValidationOpts<REQ> | (() => ValidationOpts<REQ>)
   /**
    * 处理请求.
    * @param body 正文内容
@@ -32,7 +32,11 @@ export function createJsonHandler<REQ, RES = void>(opts: {
     if (opts.validation) {
       // 切换语言
       getI18n().switchByRequest(exchange.request.headers)
-      validate(body, opts.validation)
+      if (typeof opts.validation === 'function') {
+        validate(body, opts.validation())
+      } else {
+        validate(body, opts.validation)
+      }
     }
     const res = await opts.handle(body, exchange)
     if (!res) {
