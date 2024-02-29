@@ -3,6 +3,7 @@ import { stat } from 'fs/promises'
 import { IncomingMessage, ServerResponse } from 'http'
 import { renderError } from './json'
 import { basename } from 'path'
+import { createGzip } from 'zlib'
 
 /**
  * 常用的 content-type 对照表
@@ -153,7 +154,7 @@ export async function renderFile(
   const rangeHeader = request.headers['range']
   if (!rangeHeader) {
     response.setHeader('Last-Modified', statRes.mtime.toUTCString())
-    return streamFile(filePath, response)
+    return streamFile(filePath, request, response)
   }
   // 解析，range 示例：bytes=200-1000, 2000-6576, 19000-
   // 多段的情况，暂时不做支持，非常麻烦，段数多还可能会有效率问题
@@ -161,11 +162,11 @@ export async function renderFile(
   const ranges = rangeHeader.split(',')
   let range = ranges.length ? ranges[0] : undefined
   if (!range) {
-    return streamFile(filePath, response)
+    return streamFile(filePath, request, response)
   }
   range = range.trim()
   if (!range.startsWith('bytes=')) {
-    return streamFile(filePath, response)
+    return streamFile(filePath, request, response)
   }
   range = range.substring(6)
   const strs = range.split('-')
@@ -191,11 +192,12 @@ export async function renderFile(
   // 注：Range 和 Content-Range 还有 createReadStream 中的字节范围，都是前后全包含的
   // Content-Range: bytes 42-1233/1234
   response.setHeader('Content-Range', `bytes ${start}-${end}/${statRes.size}`)
-  return streamFile(filePath, response, { start, end })
+  return streamFile(filePath, request, response, { start, end })
 }
 
 function streamFile(
   filePath: string,
+  request: IncomingMessage,
   response: ServerResponse,
   opts?: { start?: number; end?: number }
 ): Promise<void> {
@@ -206,6 +208,22 @@ function streamFile(
     } else {
       // 全部返回 200
       response.statusCode = 200
+    }
+    // 支持 gzip
+    const acceptEncoding = request.headers['accept-encoding'] as string
+    if (acceptEncoding) {
+      // Accept-Encoding: br;q=1.0, gzip;q=0.8, *;q=0.1
+      const acceptEncodings = acceptEncoding
+        .trim()
+        .split(',')
+        .map(item => item.trim())
+        .map(item => item.split(';')[0])
+      if (acceptEncodings.includes('gzip') || acceptEncodings.includes('*')) {
+        response.setHeader('Content-Encoding', 'gzip')
+        createReadStream(filePath, opts).pipe(createGzip()).pipe(response)
+        response.once('finish', res).once('error', rej)
+        return
+      }
     }
     createReadStream(filePath, opts).pipe(response)
     response.once('finish', res).once('error', rej)

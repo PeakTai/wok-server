@@ -1,6 +1,8 @@
-import { IncomingHttpHeaders, OutgoingHttpHeaders, request } from 'http'
-import { startWebServer, stopWebServer } from '../../src'
 import { equal, ok } from 'assert'
+import { IncomingHttpHeaders, OutgoingHttpHeaders, request } from 'http'
+import { Readable } from 'stream'
+import { createGunzip } from 'zlib'
+import { startWebServer, stopWebServer } from '../../src'
 import { runTestAsync } from '../utils'
 
 interface RespInfo {
@@ -152,6 +154,29 @@ describe('静态文件测试', () => {
       equal(res.status, 304)
       ok(res.headers['last-modified'])
       equal(modifiedTime, res.headers['last-modified'])
+    })
+  )
+  it(
+    'gzip',
+    runTestAsync(async () => {
+      let res = await get('/test1.txt', {
+        'Accept-Encoding': 'gzip, deflate, br'
+      })
+      equal(res.status, 200)
+      const encoding = res.headers['content-encoding']
+      equal(encoding, 'gzip')
+
+      let buffer = Buffer.alloc(0)
+      await new Promise<void>((resolve, reject) => {
+        const writer = Readable.from(res.buffer).pipe(createGunzip())
+        writer.on('data', data => {
+          buffer = Buffer.concat([buffer, data])
+        })
+        writer.once('finish', resolve).once('error', reject)
+      })
+      const text = buffer.toString('utf-8')
+
+      equal(text, '静态文本测试')
     })
   )
 })
