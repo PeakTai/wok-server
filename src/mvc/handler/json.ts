@@ -1,7 +1,15 @@
+import { IncomingMessage } from 'http'
 import { getI18n } from '../../i18n'
 import { validate, ValidationOpts } from '../../validation'
 import { ServerExchange } from '../exchange'
 import { RouterHandler } from '../router'
+
+export interface JsonHandlerExchange {
+  /**
+   * 请求信息
+   */
+  request: IncomingMessage
+}
 
 /**
  * 创建 json 处理器..
@@ -21,7 +29,7 @@ export function createJsonHandler<REQ, RES = void>(opts: {
    * @param exchange 请求传输对象，用于获取请求的基本信息
    * @returns
    */
-  handle: (body: REQ, exchange: ServerExchange) => Promise<RES>
+  handle: (body: REQ, exchange: JsonHandlerExchange) => Promise<RES>
 }): RouterHandler {
   return async function (exchange: ServerExchange) {
     if (!exchange.request.method || exchange.request.method.toUpperCase() !== 'POST') {
@@ -38,7 +46,7 @@ export function createJsonHandler<REQ, RES = void>(opts: {
         validate(body, opts.validation)
       }
     }
-    const res = await opts.handle(body, exchange)
+    const res = await opts.handle(body, { request: exchange.request })
     if (!res) {
       exchange.respond({ statusCode: 200 })
       return

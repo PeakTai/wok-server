@@ -1,4 +1,4 @@
-import { IncomingHttpHeaders } from 'http'
+import { IncomingMessage } from 'http'
 import { ServerExchange } from '../exchange'
 import { QueryString } from '../query'
 import { RouterHandler } from '../router'
@@ -6,15 +6,11 @@ import { RouterHandler } from '../router'
 /**
  * 上传请求传输对象.
  */
-export interface UploadRouterExchange {
+export interface UploadHandlerExchange {
   /**
-   * 请求地址
+   * 请求信息
    */
-  url: string
-  /**
-   * 请求头
-   */
-  headers: IncomingHttpHeaders
+  request: IncomingMessage
   /**
    * querystring 解析结果
    */
@@ -37,7 +33,7 @@ export function createUploadHandler<RES = void>(opts: {
    * @param exchange 请求传输对象，用于获取请求的基本信息
    * @returns
    */
-  handle: (body: Buffer, exchange: UploadRouterExchange) => Promise<RES>
+  handle: (body: Buffer, exchange: UploadHandlerExchange) => Promise<RES>
 }): RouterHandler {
   return async function (exchange: ServerExchange) {
     if (!exchange.request.method || exchange.request.method.toUpperCase() !== 'POST') {
@@ -45,10 +41,8 @@ export function createUploadHandler<RES = void>(opts: {
       return
     }
     const body = await exchange.bodyBuffer()
-    const { url, headers } = exchange.request
     const res = await opts.handle(body, {
-      url: url || '',
-      headers,
+      request: exchange.request,
       query: exchange.parseQueryString()
     })
     if (!res) {
