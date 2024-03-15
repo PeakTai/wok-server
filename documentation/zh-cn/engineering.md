@@ -33,6 +33,7 @@
   │   │   ├──create-tag.ts 创建标签接口（/tag/create）
   │   │   ├──delete-tag.ts 删除标签接口（/tag/delete）
   │   │   └──index.ts 包入口文件，导出需要导出的模块
+  │   ├──exception.ts 全局异常
   │   └──main.ts 入口文件，启动服务，配置路由
   ├──.env 开发环境变量配置
   ├──package.json
@@ -42,12 +43,64 @@
 
 ## 文件说明
 
+exception.ts 这个文件中包含了自定义的业务异常，以及异常的处理拦截器。
+
+```ts
+/**
+ * 自定义业务异常.
+ */
+export class BusinessException {
+  constructor(
+    /**
+     * 提示信息.
+     */
+    readonly message: string,
+    /**
+     * 自定义状态码，默认 400
+     */
+    readonly status?: number
+  ) {}
+}
+
+/**
+ * 全局异常拦截器，对一些特定的异常做处理，给予合适的响应信息.
+ * @param exchange
+ * @param next
+ */
+export async function globalErrorInterceptor(
+  exchange: ServerExchange,
+  next: () => Promise<void>
+): Promise<void> {
+  try {
+    await next()
+  } catch (e) {
+    // 处理自定义业务异常
+    if (e instanceof BusinessException) {
+      const status = typeof e.status === 'number' ? e.status : 400
+      const message = e.message || ''
+      exchange.respondErrMsg(message, status)
+      return
+    }
+    // 校验异常
+    if (e instanceof ValidationException) {
+      exchange.respondErrMsg(`${e.propertyPath}：${e.errMsg}`, 400)
+      return
+    }
+    // 其它异常直接抛出，框架默认会响应 500 状态码
+    throw e
+  }
+}
+```
+
+使用自定义业务异常，在业务无法进行的情况下抛出异常中止请求处理，事务的处理过程中遇到异常也会进行回滚，这是推荐的做法。
+
 main.ts 示例：
 
 ```ts
 import { createAuth, authInterceptor, ccuTask } from './auth'
 import { createUser, updateUser, deleteUser } from './user'
 import { createTag, deleteTag } from './tag'
+import { globalErrorInterceptor } from './exception'
 
 async function main() {
   // 改写 date 原型，将日期序列化为数字
@@ -77,7 +130,7 @@ async function main() {
       '/tag/delete': deleteTag
     },
     // 拦截器
-    interceptors: [authInterceptor]
+    interceptors: [globalErrorInterceptor, authInterceptor]
   })
   // 周期性任务
   // 每60秒统计一次在线人数
@@ -194,9 +247,9 @@ export const createUser = createJsonHandler<Form, Resp>({
   async handle(body, exchange) {
     const manager = getMysqlManager()
     if (await manager.existsBy(tableUser, { code: body.code })) {
-      // 错误信息的响应也可以自定义异常，然后通过拦截器来统一处理，这里仅仅是简单的示例
-      exchage.respondErrMsg('编号已经存在')
-      return
+      // 抛出异常，中止处理
+      // 异常最终会由拦截器来处理并响应
+      throw new BusinessException('编号已经存在')
     }
     const newUser = await manager.insert(tableUser, body)
     return { id: newUser.id }
