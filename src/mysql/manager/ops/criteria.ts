@@ -106,6 +106,15 @@ export class MysqlCriteria<T> {
     return this
   }
   /**
+   * not in 条件
+   * @param column
+   * @param values
+   */
+  notIn(column: keyof T, values: Array<string | number>) {
+    this.criteria.push({ type: 'notIn', columnName: column, value: values })
+    return this
+  }
+  /**
    * 嵌入其它的查询条件，与现有的查询条件是或者关系.
    * @param criteria
    */
@@ -168,15 +177,19 @@ export class MysqlCriteria<T> {
       if (criterion.type === 'isNull' || criterion.type === 'isNotNull') {
         continue
       }
-      if (criterion.type === 'in') {
+      if (criterion.type === 'in' || criterion.type === 'notIn') {
         if (!Array.isArray(criterion.value)) {
           throw new MysqlException(
-            `Invalid in condition，the condition value is not a array type，column name：${criterion.columnName.toString()}`
+            `Invalid ${
+              criterion.type
+            } condition，the condition value is not a array type，column name：${criterion.columnName.toString()}`
           )
         }
         if (!criterion.value.length) {
           throw new MysqlException(
-            `Invalid in condition，the condition value cannot be an empty array，column name：${criterion.columnName.toString()}`
+            `Invalid ${
+              criterion.type
+            } condition，the condition value cannot be an empty array，column name：${criterion.columnName.toString()}`
           )
         }
         continue
@@ -243,13 +256,15 @@ export class MysqlCriteria<T> {
           sign = '<='
         } else if (criterion.type === 'in') {
           sign = 'in'
+        } else if (criterion.type === 'notIn') {
+          sign = 'not in'
         } else if (criterion.type === 'like') {
           sign = 'like'
         } else if (criterion.type === 'notLike') {
           sign = 'not like'
         }
         if (sign) {
-          if (criterion.type === 'in') {
+          if (criterion.type === 'in' || criterion.type === 'notIn') {
             sqlFragments.push(`and ?? ${sign} (?) `)
           } else {
             sqlFragments.push(`and ?? ${sign} ? `)
@@ -307,6 +322,7 @@ interface Criterion<T> {
     | 'lt'
     | 'lte'
     | 'in'
+    | 'notIn'
     | 'or'
     | 'and'
     | 'like'

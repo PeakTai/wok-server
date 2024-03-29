@@ -608,6 +608,20 @@ describe('mysql 组件测试', () => {
         orderBy: [['balance', 'asc']]
       })
       equal(list.length, 2)
+
+      // in 条件和 notIn 条件测试
+      list = await manager.find({
+        table: tableUser,
+        criteria: c =>
+          c.in('id', ['find1', 'find2', 'find3', 'find4']).notIn('id', ['find2', 'find4']),
+        offset: 0,
+        limit: 10,
+        orderBy: [['id', 'asc']]
+      })
+      equal(list.length, 2)
+      const [uu1, uu2] = list
+      equal(uu1.id, 'find1')
+      equal(uu2.id, 'find3')
     })
   )
   it(
