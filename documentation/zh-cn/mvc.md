@@ -118,12 +118,96 @@ await startWebServer({
           exchange.respondErrMsg(e.errMsg, 400)
           return
         }
-        getLogger().error(`接口异常 ${url}`, e)
-        // 调用 exchange 上的工具方法，快速完成一个响应
-        exchange.respondErrMsg('服务器内部错误', 500)
+        // 对于不能处理的异常，可直接抛出
+        // 框架最终会响应 500 状态码，并记录错误信息到日志里以便于线上排查
+        throw e
       }
     }
   ]
+})
+```
+
+### 异常处理
+
+对于业务处理失败的情况下，推荐的做法是抛出异常来中止处理流程，然后由拦截器来统一处理进行响应。
+但是这并非是强制的，框架也没有预置任何相关的类型或函数，需要自己根据实际情况来扩展，下面是一个例子。
+
+```ts
+/**
+ * 自定义业务异常.
+ */
+export class BusinessException {
+  constructor(
+    /**
+     * 提示信息.
+     */
+    readonly message: string,
+    /**
+     * 自定义状态码，默认 400
+     */
+    readonly status?: number
+  ) {}
+}
+
+/**
+ * 全局异常拦截器，对一些特定的异常做处理，给予合适的响应信息.
+ * @param exchange
+ * @param next
+ */
+export async function globalErrorInterceptor(
+  exchange: ServerExchange,
+  next: () => Promise<void>
+): Promise<void> {
+  try {
+    await next()
+  } catch (e) {
+    // 处理自定义业务异常
+    if (e instanceof BusinessException) {
+      const status = typeof e.status === 'number' ? e.status : 400
+      const message = e.message || ''
+      exchange.respondErrMsg(message, status)
+      return
+    }
+    // 处理校验异常
+    if (e instanceof ValidationException) {
+      exchange.respondErrMsg(e.errMsg, 400)
+      return
+    }
+    // 其它异常不需要处理的直接抛出，框架默认会响应 500 状态码
+    throw e
+  }
+}
+```
+
+实际开发中可根据情况设置多个业务异常，分别响应不同的 JSON 格式，
+respondErrMsg 方法响应的 json 格式是框架预设的，可通过 respondJson 方法响应自定义的格式。
+
+将错误处理拦截器设置为第一个拦截器，在使用请求处理过程中使用自定义异常。
+
+```ts
+// 启动服务
+await startWebServer({
+  interceptors: [
+    // 将错误处理拦截器设置为第一个拦截器
+    globalErrorInterceptor,
+    // 接下来是其它的拦截器
+    authInterceptor
+  ],
+  // 路由
+  routers: {
+    '/order/cancel': createJsonHandler<{ id: string }>({
+      validation: { id: [notBlank()] },
+      async handle(body, exchange) {
+        const order = await findOrderById(body.id)
+        if (!order) {
+          // 使用自定义业务异常来中断处理流程
+          throw new BusinessException('找不到订单')
+        }
+        // 继续处理 ...
+      }
+    })
+    // 省略路由配置代码
+  }
 })
 ```
 
@@ -159,11 +243,12 @@ await startWebServer({
 请求和响应都是 json 格式，响应和请求都可以为空。请求为空可以填入类型 {} 来表示空对象，响应为空可以填入类型 void 。
 
 ```ts
-// 申请请求体　json 格式和响应的格式
+// json 格式请求正文定义
 interface Form {
   name: string
   age: number
 }
+// json 格式响应信息定义
 interface Resp {
   id: string
 }
@@ -190,7 +275,71 @@ export const userCreateHandler = createJsonHandler<Form, Resp>({
 
 校验时会自动根据消息头 `accept-language` 切换校验器的语言，对于没有自定义错误信息的校验使用切换后的语言给予默认的提示。
 
-### 上传文件处理
+### 二进制（Binary）上传
+
+二制进上传也就是将文件以二进制的形式写入请求正文，请求正文仅存储文件内容没有别的信息，
+请求的格式（Content-type）是 application/octet-stream 。
+
+这种形式带来的好处就是简单，性能更好，因为服务器端拿到请求正文就是文件，不像 multipart/form-data 格式过需要解析内容来获取信息。
+但是由于请求正文仅存储了文件，其它的业务参数只能通过查询字符串（Query String）带入。
+
+框架提供了 createUploadHandler 函数带创建处理二进制格式请求的路由处理器，响应 JSON 格式，下面是示例。
+
+```ts
+interface Resp {
+  /**
+   * 新头像访问地址
+   */
+  url: string
+}
+
+/**
+ * 演示场景: 上传头像
+ */
+export const uploadAvatar = createUploadHandler<Resp>({
+  async handle(body, exchange) {
+    // 通过 Query String 获取用户id参数
+    const userId = exchange.query.getStr('userId') as string
+    // 校验参数
+    validate(
+      { userId },
+      {
+        userId: [notBlank(), maxLength(64)]
+      }
+    )
+    // 判定文件大小
+    if (body.byteLength > 2 * 1024 * 1024) {
+      // BusinessException 是自定义的业务异常，抛出后由拦截器统一处理
+      throw new BusinessException('文件大小不得超过 2MB')
+    }
+    const user = await getMysqlManager().findById(tableUser, userId)
+    if (!user) {
+      throw new BusinessException('找不到用户')
+    }
+    // 模拟上传到文件服务器的场景，oss 是对象存储服务 sdk
+    const key = `users/${userId}/avatar`
+    await oss.putObject(key, body)
+    await getMysqlManager().partialUpdate(tableUser, { id: userId, avatar_key: key })
+    return { url: oss.getUrl(key) }
+  }
+})
+```
+
+如果需要更高的自由度，比如不想返回 json 格式，定义普通的路由处理器即可，通过 exchage 上的 bodyBuffer 方法即可获取请求正文内容。
+
+```ts
+export const uploadAvatar: RouterHandler = async exchange => {
+  // 读取文件
+  const file = await exchange.bodyBuffer()
+  // 获取 Query String 上的参数
+  const query = exchange.parseQueryString()
+  const userId = query.getStr('userId')
+
+  // 校验参数和存储文件等流程省略...
+}
+```
+
+### multipart/form-data 格式上传文件处理
 
 组件目前尚未实现对 multipart/form-data 类型请求的处理，如有需要可通一些第三方库来解析文件上传的请求内容。
 
@@ -250,7 +399,6 @@ await startWebServer({
             add({ tag: 'h1', children: ['个人中心'] })
             // 在 user 有值和无值的情况下分别渲染不同的元素
             if (user) {
-              1
               add({ tag: 'p', children: [`用户名：${user.account}`] })
             } else {
               add({
