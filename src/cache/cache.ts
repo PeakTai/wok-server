@@ -23,7 +23,7 @@ export class Cache {
 
   constructor(
     private readonly valueMap: Map<string, CacheContent>,
-    private readonly stat: CacheStat
+    private readonly stat?: CacheStat
   ) {}
 
   /**
@@ -49,15 +49,15 @@ export class Cache {
   get<T>(key: string): T | undefined {
     const content = this.valueMap.get(key)
     if (!content) {
-      this.stat.addGet(false)
+      this.stat?.addGet(false)
       return undefined
     }
     if (content.expireAt < new Date().getTime()) {
-      this.stat.addGet(false)
+      this.stat?.addGet(false)
       this.valueMap.delete(key)
       return undefined
     }
-    this.stat.addGet(true)
+    this.stat?.addGet(true)
     return content.val
   }
   /**
@@ -65,7 +65,7 @@ export class Cache {
    */
   clear() {
     this.valueMap.clear()
-    this.stat.clear()
+    this.stat?.clear()
   }
 
   /**
@@ -89,10 +89,10 @@ export class Cache {
   ): Promise<T> {
     const content = this.valueMap.get(key)
     if (content && content.expireAt >= new Date().getTime()) {
-      this.stat.addGet(true)
+      this.stat?.addGet(true)
       return content.val
     }
-    this.stat.addGet(false)
+    this.stat?.addGet(false)
     // 如果已经在处理中，则直接返回 promise
     const ep = this.promiseMap.get(key)
     if (ep) {

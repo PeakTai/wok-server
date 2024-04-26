@@ -7,7 +7,7 @@ import { config } from './config'
  * 缓存清理任务
  */
 export class PurgeTask implements Task {
-  readonly name = 'cache purge'
+  readonly name = 'Cache purge'
 
   constructor(private readonly valueMap: Map<string, CacheContent>) {}
 
@@ -21,11 +21,11 @@ export class PurgeTask implements Task {
       }
     }
     if (removeCount > 0) {
-      if (removeCount > 1) {
-        getLogger().info(`A total of ${removeCount} expired cache records have been cleared.`)
-      } else {
-        getLogger().info(`A total of ${removeCount} expired cache record has been cleared.`)
-      }
+      getLogger().info(
+        `A total of ${removeCount} expired cache ${
+          removeCount > 1 ? 'records' : 'record'
+        } have been cleared.`
+      )
     }
 
     // 如果过期的都清理掉，但是元素总数仍然超出，则删除多余元素，删除是从头开始删除的
@@ -43,11 +43,11 @@ export class PurgeTask implements Task {
           break
         }
       }
-      if (evictedCount > 1) {
-        getLogger().info(`A total of ${evictedCount} cache records have been evicted.`)
-      } else {
-        getLogger().info(`A total of ${evictedCount} cache record has been evicted.`)
-      }
+      getLogger().info(
+        `A total of ${evictedCount} cache ${
+          evictedCount > 1 ? 'records' : 'record'
+        } have been evicted.`
+      )
     }
   }
 }

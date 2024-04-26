@@ -5,7 +5,7 @@ import { PurgeTask } from './purge-task'
 import { CacheStat } from './stat'
 
 const valueMap = new Map<string, any>()
-const stat = new CacheStat(valueMap)
+const stat = config.statTaskEnabled ? new CacheStat(valueMap) : undefined
 const cache = new Cache(valueMap, stat)
 
 // 清理任务
@@ -14,10 +14,10 @@ scheduleWithFixedDelay(config.cleaningInterval, config.cleaningInterval, new Pur
 // 统计任务
 if (config.statTaskEnabled) {
   scheduleWithFixedDelay(config.statInterval, config.statInterval, {
-    name: 'cache statistics',
+    name: 'Cache statistics',
     async run() {
-      stat.log()
-      stat.clear()
+      stat?.log()
+      stat?.clear()
     }
   })
 }
