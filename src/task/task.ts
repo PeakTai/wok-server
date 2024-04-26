@@ -38,7 +38,7 @@ export class TaskController {
 export async function execTask(task: Task): Promise<{ start: number; cost: number; end: number }> {
   const start = new Date().getTime()
   try {
-    getLogger().info(`START TASK：${task.name}`)
+    getLogger().debug(`START TASK：${task.name}`)
     await task.run()
   } catch (e) {
     getLogger().error(`TASK ERROR: ${task.name}`, e)
@@ -47,6 +47,8 @@ export async function execTask(task: Task): Promise<{ start: number; cost: numbe
   const cost = end - start
   if (cost > 1000 * 60 * 5) {
     getLogger().warn(`Task "${task.name}" takes too long ，cost ${cost}ms`)
+  } else {
+    getLogger().debug(`Task "${task.name}" has finished, taking a total of 388 milliseconds.`)
   }
   return { start, cost, end }
 }
