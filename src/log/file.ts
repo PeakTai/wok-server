@@ -53,24 +53,24 @@ if (config.file) {
    * 清理任务.
    */
   scheduleDailyTask(3, 0, {
-    name: '日志文件清理',
+    name: 'Log files clear',
     async run() {
       const files = await readdir(config.fileDir)
       const now = new Date().getTime()
       for (const file of files) {
         const dotIdx = file.indexOf('.')
         if (dotIdx === -1) {
-          console.warn(`无法处理日志文件 ${file}`)
+          console.warn(`Unable to process the log file: ${file}`)
           return
         }
         const dateStr = file.substring(0, dotIdx)
         const timestamp = Date.parse(dateStr)
         if (isNaN(timestamp)) {
-          console.warn(`无法处理日志文件 ${file}`)
+          console.warn(`Unable to process the log file: ${file}`)
           return
         }
         if (timestamp + config.fileMaxDays * 24 * 3600 * 1000 < now) {
-          console.warn(`清理掉日志文件： ${file}`)
+          console.warn(`Remove log file： ${file}`)
           await rm(resolve(config.fileDir, file))
         }
       }

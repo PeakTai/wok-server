@@ -1,14 +1,10 @@
 import { EOL } from 'os'
 import { config } from './config'
 import { formatDateTime } from './date'
-import { LogLevel, LogLevelVals } from './level'
-import { getLogStore, setLogStore } from './store'
 import { fileStore } from './file'
+import { LogLevel } from './level'
+import { getLogStore, setLogStore } from './store'
 
-/**
- * 日志级别的值
- */
-const LOG_LEVEL_VAL = LogLevelVals[config.level]
 /**
  * 文件存储
  */
@@ -23,29 +19,29 @@ if (config.file) {
  * @param error
  */
 function log(level: LogLevel, message: string, error?: any) {
-  const levelVal = LogLevelVals[level]
-  if (levelVal >= LOG_LEVEL_VAL) {
-    const date = new Date()
-    // 控制台输出日志
-    let msg = `[${formatDateTime(date)}][${level}]${message}`
-    console.log(msg)
+  if (level < config.level) {
+    return
+  }
+  const date = new Date()
+  // 控制台输出日志
+  let msg = `[${formatDateTime(date)}][${LogLevel[level]}]${message}`
+  console.log(msg)
+  if (error) {
+    console.log(error)
+  }
+  // 存储中输出日志
+  const store = getLogStore()
+  if (store) {
     if (error) {
-      console.log(error)
-    }
-    // 存储中输出日志
-    const store = getLogStore()
-    if (store) {
-      if (error) {
-        if (error.stack) {
-          msg += EOL + error.stack
-        } else if (error.message) {
-          msg += EOL + error.message
-        } else {
-          msg += EOL + error
-        }
+      if (error.stack) {
+        msg += EOL + error.stack
+      } else if (error.message) {
+        msg += EOL + error.message
+      } else {
+        msg += EOL + error
       }
-      store(msg)
     }
+    store(msg)
   }
 }
 
@@ -58,7 +54,7 @@ const logger = Object.freeze({
   },
 
   isDebugEnabled() {
-    return LogLevelVals[LogLevel.DEBUG] >= LOG_LEVEL_VAL
+    return LogLevel.DEBUG >= config.level
   },
   /**
    * info 日志
@@ -69,7 +65,7 @@ const logger = Object.freeze({
   },
 
   isInfoEnabled() {
-    return LogLevelVals[LogLevel.INFO] >= LOG_LEVEL_VAL
+    return LogLevel.INFO >= config.level
   },
   /**
    * 警告日志
@@ -81,7 +77,7 @@ const logger = Object.freeze({
   },
 
   isWarnEnabled() {
-    return LogLevelVals[LogLevel.WARN] >= LOG_LEVEL_VAL
+    return LogLevel.WARN >= config.level
   },
   /**
    * 错误日志
@@ -93,7 +89,7 @@ const logger = Object.freeze({
   },
 
   isErrorEnabled() {
-    return LogLevelVals[LogLevel.ERROR] >= LOG_LEVEL_VAL
+    return LogLevel.ERROR >= config.level
   }
 })
 
@@ -108,3 +104,4 @@ export function getLogger() {
 export * from './config'
 export * from './level'
 export { setLogStore } from './store'
+

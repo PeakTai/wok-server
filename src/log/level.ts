@@ -2,18 +2,11 @@
  * 日志级别.
  */
 export enum LogLevel {
-  DEBUG = 'DEBUG',
-  INFO = 'INFO',
-  WARN = 'WARN',
-  ERROR = 'ERROR'
+  DEBUG = 1,
+  INFO = 2,
+  WARN = 3,
+  ERROR = 4
 }
-
-export const LogLevelVals: Record<LogLevel, number> = Object.freeze({
-  [LogLevel.DEBUG]: 1,
-  [LogLevel.INFO]: 2,
-  [LogLevel.WARN]: 3,
-  [LogLevel.ERROR]: 4
-})
 
 /**
  * 解析日志级别
@@ -31,6 +24,6 @@ export function parseLogLevel(level: string): LogLevel {
     case 'ERROR':
       return LogLevel.ERROR
     default:
-      throw new Error(`无法解析日志级别：${level}`)
+      throw new Error(`Unknown log level ：${level}`)
   }
 }

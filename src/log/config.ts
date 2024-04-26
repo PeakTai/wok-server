@@ -1,11 +1,12 @@
 import { isAbsolute, resolve } from 'path'
+import { registerConfig } from '../config'
+import { min, notBlank, notNull } from '../validation'
 import { LogLevel, parseLogLevel } from './level'
-import { config as configEnv } from 'dotenv'
 
 /**
  * 日志配置的定义
  */
-export interface LogConfig {
+interface EnvConfig {
   /**
    * 是否输出到文件，如果为 true ，则会在根目录下生成 logs 目录存放日志文件.
    */
@@ -21,32 +22,36 @@ export interface LogConfig {
   /**
    * 要输出的日志级别.
    */
-  level: LogLevel
+  level: string
 }
 
-configEnv()
-
-/**
- * 默认配置信息.
- */
-const config: LogConfig = {
-  file: process.env.LOG_FILE === 'true',
-  fileDir: process.env.LOG_FILE_DIR || 'logs',
-  fileMaxDays: 30,
-  level: parseLogLevel(process.env.LOG_LEVEL || 'info')
-}
-
-// 目录处理
-if (!isAbsolute(config.fileDir)) {
-  config.fileDir = resolve(process.cwd(), config.fileDir)
-}
-
-// 天数
-if (process.env.LOG_FILE_MAX_DAYS) {
-  const days = parseInt(process.env.LOG_FILE_MAX_DAYS)
-  if (!isNaN(days)) {
-    config.fileMaxDays = days
+const envConfig = registerConfig<EnvConfig>(
+  {
+    file: false,
+    fileDir: 'logs',
+    fileMaxDays: 30,
+    level: 'INFO'
+  },
+  'LOG',
+  {
+    file: [notNull()],
+    fileDir: [notBlank()],
+    fileMaxDays: [min(1)],
+    level: [notBlank()]
   }
+)
+
+export type LogConfig = Omit<EnvConfig, 'level'> & { level: LogLevel }
+
+let { fileDir, level } = envConfig
+// 目录处理
+if (!isAbsolute(fileDir)) {
+  fileDir = resolve(process.cwd(), fileDir)
 }
 
-export { config }
+export const config: LogConfig = Object.freeze({
+  file: envConfig.file,
+  fileDir,
+  fileMaxDays: envConfig.fileMaxDays,
+  level: parseLogLevel(level)
+})
