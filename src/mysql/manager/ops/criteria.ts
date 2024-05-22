@@ -6,6 +6,62 @@ export interface MysqlQuery {
 }
 
 /**
+ * mysql 查询条件中的键，左侧表达式，可以是提取信息的表达式，也可以直接是列名
+ *
+ * keyof T 列名，直接用列的值来比较
+ * ['json_extract', keyof T, string] 使用 json_extract 函数提取 json 信息，第二个参数是列名，最后一个参数是表达式（如：'$.name'）
+ * ['json_length',keyof T] 使用 json_length 函数提取 json 数组的元素数量
+ */
+export type MysqlCriteriaKey<T> =
+  | keyof T
+  | ['json_extract', keyof T, string]
+  | ['json_length', keyof T]
+
+/**
+ * 生成条件查询中键的sql片段，包含 sql 内容和要传递的值
+ */
+function generateMysqlCriteriaKeySqlSeg<T>(key: MysqlCriteriaKey<T>): {
+  sqlSeg: string
+  value: keyof T
+} {
+  if (Array.isArray(key)) {
+    if (key[0] === 'json_extract') {
+      return { sqlSeg: `JSON_EXTRACT(??, ${JSON.stringify(key[2])})`, value: key[1] }
+    }
+    if (key[0] === 'json_length') {
+      return { sqlSeg: `JSON_LENGTH(??)`, value: key[1] }
+    }
+    throw new MysqlException(`Unsupported MysqlCriteriaKey type: ${key[0]}`)
+  }
+  return { sqlSeg: '??', value: key }
+}
+
+interface Criterion<T> {
+  type:
+    | 'eq'
+    | 'neq'
+    | 'gt'
+    | 'gte'
+    | 'lt'
+    | 'lte'
+    | 'in'
+    | 'notIn'
+    | 'or'
+    | 'and'
+    | 'like'
+    | 'isNull'
+    | 'isNotNull'
+    | 'notLike'
+    | 'between'
+  key?: MysqlCriteriaKey<T>
+  value?: any
+  /**
+   * 嵌套的其它查询， or 和 and  条件下有效
+   */
+  criteria?: MysqlCriteria<T>
+}
+
+/**
  * mysql 查询条件（ query criterion ），默认查询条件都是并且关系（and）， 部分方法会有例外，在使用的时候请注意方法说明。
  *
  * @param <T> 表类型
@@ -20,8 +76,8 @@ export class MysqlCriteria<T> {
    * @param column
    * @param value
    */
-  eq(column: keyof T, value: any) {
-    this.criteria.push({ type: 'eq', columnName: column, value })
+  eq(column: MysqlCriteriaKey<T>, value: any) {
+    this.criteria.push({ type: 'eq', key: column, value })
     return this
   }
   /**
@@ -29,8 +85,8 @@ export class MysqlCriteria<T> {
    * @param column
    * @param value
    */
-  neq(column: keyof T, value: any) {
-    this.criteria.push({ type: 'neq', columnName: column, value })
+  neq(column: MysqlCriteriaKey<T>, value: any) {
+    this.criteria.push({ type: 'neq', key: column, value })
     return this
   }
   /**
@@ -39,8 +95,8 @@ export class MysqlCriteria<T> {
    * @param value
    * @returns
    */
-  like(column: keyof T, value: string) {
-    this.criteria.push({ type: 'like', columnName: column, value })
+  like(column: MysqlCriteriaKey<T>, value: string) {
+    this.criteria.push({ type: 'like', key: column, value })
     return this
   }
   /**
@@ -49,15 +105,15 @@ export class MysqlCriteria<T> {
    * @param value
    * @returns
    */
-  notLike(column: keyof T, value: string) {
-    this.criteria.push({ type: 'notLike', columnName: column, value })
+  notLike(column: MysqlCriteriaKey<T>, value: string) {
+    this.criteria.push({ type: 'notLike', key: column, value })
     return this
   }
   /**
    * BETWEEN x and y
    */
-  between(column: keyof T, min: number, max: number) {
-    this.criteria.push({ type: 'between', columnName: column, value: [min, max] })
+  between(column: MysqlCriteriaKey<T>, min: number, max: number) {
+    this.criteria.push({ type: 'between', key: column, value: [min, max] })
     return this
   }
   /**
@@ -65,8 +121,8 @@ export class MysqlCriteria<T> {
    * @param column
    * @param value
    */
-  gt(column: keyof T, value: number | Date | string) {
-    this.criteria.push({ type: 'gt', columnName: column, value })
+  gt(column: MysqlCriteriaKey<T>, value: number | Date | string) {
+    this.criteria.push({ type: 'gt', key: column, value })
     return this
   }
   /**
@@ -74,8 +130,8 @@ export class MysqlCriteria<T> {
    * @param column
    * @param value
    */
-  gte(column: keyof T, value: number | Date | string) {
-    this.criteria.push({ type: 'gte', columnName: column, value })
+  gte(column: MysqlCriteriaKey<T>, value: number | Date | string) {
+    this.criteria.push({ type: 'gte', key: column, value })
     return this
   }
   /**
@@ -83,8 +139,8 @@ export class MysqlCriteria<T> {
    * @param column
    * @param value
    */
-  lt(column: keyof T, value: number | Date | string) {
-    this.criteria.push({ type: 'lt', columnName: column, value })
+  lt(column: MysqlCriteriaKey<T>, value: number | Date | string) {
+    this.criteria.push({ type: 'lt', key: column, value })
     return this
   }
   /**
@@ -92,8 +148,8 @@ export class MysqlCriteria<T> {
    * @param column
    * @param value
    */
-  lte(column: keyof T, value: number | Date | string) {
-    this.criteria.push({ type: 'lte', columnName: column, value })
+  lte(column: MysqlCriteriaKey<T>, value: number | Date | string) {
+    this.criteria.push({ type: 'lte', key: column, value })
     return this
   }
   /**
@@ -101,8 +157,8 @@ export class MysqlCriteria<T> {
    * @param column
    * @param values
    */
-  in(column: keyof T, values: Array<string | number>) {
-    this.criteria.push({ type: 'in', columnName: column, value: values })
+  in(column: MysqlCriteriaKey<T>, values: Array<string | number>) {
+    this.criteria.push({ type: 'in', key: column, value: values })
     return this
   }
   /**
@@ -110,8 +166,8 @@ export class MysqlCriteria<T> {
    * @param column
    * @param values
    */
-  notIn(column: keyof T, values: Array<string | number>) {
-    this.criteria.push({ type: 'notIn', columnName: column, value: values })
+  notIn(column: MysqlCriteriaKey<T>, values: Array<string | number>) {
+    this.criteria.push({ type: 'notIn', key: column, value: values })
     return this
   }
   /**
@@ -139,8 +195,8 @@ export class MysqlCriteria<T> {
    * @param field
    * @returns
    */
-  isNull(field: keyof T) {
-    this.criteria.push({ type: 'isNull', columnName: field })
+  isNull(field: MysqlCriteriaKey<T>) {
+    this.criteria.push({ type: 'isNull', key: field })
     return this
   }
   /**
@@ -148,8 +204,8 @@ export class MysqlCriteria<T> {
    * @param field
    * @returns
    */
-  isNotNull(field: keyof T) {
-    this.criteria.push({ type: 'isNotNull', columnName: field })
+  isNotNull(field: MysqlCriteriaKey<T>) {
+    this.criteria.push({ type: 'isNotNull', key: field })
     return this
   }
   /**
@@ -171,7 +227,7 @@ export class MysqlCriteria<T> {
         criterion.criteria.check()
         continue
       }
-      if (!criterion.columnName) {
+      if (!criterion.key) {
         throw new MysqlException('The column name of the query criteria cannot be blank.')
       }
       if (criterion.type === 'isNull' || criterion.type === 'isNotNull') {
@@ -182,14 +238,14 @@ export class MysqlCriteria<T> {
           throw new MysqlException(
             `Invalid ${
               criterion.type
-            } condition，the condition value is not a array type，column name：${criterion.columnName.toString()}`
+            } condition，the condition value is not a array type，column name：${criterion.key.toString()}`
           )
         }
         if (!criterion.value.length) {
           throw new MysqlException(
             `Invalid ${
               criterion.type
-            } condition，the condition value cannot be an empty array，column name：${criterion.columnName.toString()}`
+            } condition，the condition value cannot be an empty array，column name：${criterion.key.toString()}`
           )
         }
         continue
@@ -197,14 +253,14 @@ export class MysqlCriteria<T> {
       if (criterion.type === 'between') {
         if (!Array.isArray(criterion.value)) {
           throw new MysqlException(
-            `Invalid between condition，the condition value is not an array type，column name：${criterion.columnName.toString()}, value:${
+            `Invalid between condition，the condition value is not an array type，column name：${criterion.key.toString()}, value:${
               criterion.value
             }`
           )
         }
         if (criterion.value.length !== 2) {
           throw new MysqlException(
-            `Invalid between condition，the condition value must be an array of length 2，column: ${criterion.columnName.toString()}，value：${
+            `Invalid between condition，the condition value must be an array of length 2，column: ${criterion.key.toString()}，value：${
               criterion.value.length
             }`
           )
@@ -218,7 +274,7 @@ export class MysqlCriteria<T> {
       ) {
         throw new MysqlException(
           'The value of the query criteria is invalid，only number,string and Date are supported，' +
-            `column name : ${criterion.columnName.toString()}，value : ${criterion.value} .`
+            `column name : ${criterion.key.toString()}，value : ${criterion.value} .`
         )
       }
     }
@@ -233,11 +289,11 @@ export class MysqlCriteria<T> {
     const values: any[] = []
     for (const criterion of this.criteria) {
       // 普通的查询
-      if (criterion.columnName && criterion.value !== undefined) {
+      if (criterion.key && criterion.value !== undefined) {
         // between 特殊处理
         if (criterion.type === 'between') {
           sqlFragments.push('and ?? between ? and ? ')
-          values.push(criterion.columnName, criterion.value[0], criterion.value[1])
+          values.push(criterion.key, criterion.value[0], criterion.value[1])
           continue
         }
         // 符号
@@ -264,23 +320,25 @@ export class MysqlCriteria<T> {
           sign = 'not like'
         }
         if (sign) {
+          const keySeg = generateMysqlCriteriaKeySqlSeg(criterion.key)
           if (criterion.type === 'in' || criterion.type === 'notIn') {
-            sqlFragments.push(`and ?? ${sign} (?) `)
+            sqlFragments.push(`and ${keySeg.sqlSeg} ${sign} (?) `)
           } else {
-            sqlFragments.push(`and ?? ${sign} ? `)
+            sqlFragments.push(`and ${keySeg.sqlSeg} ${sign} ? `)
           }
-          values.push(criterion.columnName, criterion.value)
+          values.push(keySeg.value, criterion.value)
         }
         continue
-      } else if (criterion.columnName) {
+      } else if (criterion.key) {
+        const keySeg = generateMysqlCriteriaKeySqlSeg(criterion.key)
         if (criterion.type === 'isNull') {
-          sqlFragments.push(`and ?? is null `)
-          values.push(criterion.columnName)
+          sqlFragments.push(`and ${keySeg.sqlSeg} is null `)
+          values.push(keySeg.value)
           continue
         }
         if (criterion.type === 'isNotNull') {
-          sqlFragments.push(`and ?? is not null `)
-          values.push(criterion.columnName)
+          sqlFragments.push(`and ${keySeg.sqlSeg} is not null `)
+          values.push(keySeg.value)
           continue
         }
       }
@@ -313,30 +371,10 @@ export class MysqlCriteria<T> {
   }
 }
 
-interface Criterion<T> {
-  type:
-    | 'eq'
-    | 'neq'
-    | 'gt'
-    | 'gte'
-    | 'lt'
-    | 'lte'
-    | 'in'
-    | 'notIn'
-    | 'or'
-    | 'and'
-    | 'like'
-    | 'isNull'
-    | 'isNotNull'
-    | 'notLike'
-    | 'between'
-  columnName?: keyof T
-  value?: any
-  /**
-   * 嵌套的其它查询， or 和 and  条件下有效
-   */
-  criteria?: MysqlCriteria<T>
-}
+/**
+ * 混合的查询对象.
+ */
+export type MixCriteria<T> = Partial<T> | ((criteria: MysqlCriteria<T>) => void) | MysqlCriteria<T>
 
 function convertToCriteria<T>(example: Partial<T>): MysqlCriteria<keyof T> {
   const criteria = new MysqlCriteria<keyof T>()
@@ -346,10 +384,6 @@ function convertToCriteria<T>(example: Partial<T>): MysqlCriteria<keyof T> {
   })
   return criteria
 }
-/**
- * 混合的查询对象.
- */
-export type MixCriteria<T> = Partial<T> | ((criteria: MysqlCriteria<T>) => void) | MysqlCriteria<T>
 
 /**
  * 将混合的查询条件转换成查询语句，如果最终构建的条件是空的，返回 undefined

@@ -1,6 +1,7 @@
 import { existsSync } from 'fs'
 import { stat } from 'fs/promises'
 import { IncomingMessage, Server, ServerResponse, createServer } from 'http'
+import {createServer as createHttpsServer} from 'https'
 import { Socket } from 'net'
 import { networkInterfaces } from 'os'
 import { isAbsolute, resolve } from 'path'
@@ -282,6 +283,11 @@ export async function startWebServer(opts: {
     }
   >
 }) {
+  createHttpsServer({
+    cert:'',key:''
+  }, () => {
+
+  })
   if (SERVER) {
     throw new Error('The server has already been started!')
   }
@@ -370,7 +376,11 @@ export async function startWebServer(opts: {
 
   console.log('App running at: ')
   getIpv4List().forEach(ip => {
-    console.log(`http://${ip}:${config.port}`)
+    if (config.port === 80) {
+      console.log(`http://${ip}`)
+    } else {
+      console.log(`http://${ip}:${config.port}`)
+    }
   })
 
   process.on('beforeExit', () => {

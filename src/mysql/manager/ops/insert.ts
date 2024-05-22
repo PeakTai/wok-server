@@ -3,6 +3,7 @@ import { MysqlException } from '../../exception'
 import { Table } from '../../table-info'
 import { promiseQuery } from '../utils'
 import { MysqlConfig } from '../../config'
+import { processColumnValue } from './utils'
 
 /**
  * 为表插入数据
@@ -40,7 +41,11 @@ export async function insert<T>(
   const sql = `insert into ??(${columns.map(() => '??').join(',')}) values(${columns
     .map(() => '?')
     .join(',')})`
-  const values: any[] = [table.tableName, ...columns, ...columns.map(col => data[col])]
+  const values: any[] = [
+    table.tableName,
+    ...columns,
+    ...columns.map(col => processColumnValue(data[col]))
+  ]
   const res = await promiseQuery(config, connection, sql, values)
   const packet = res as ResultSetHeader
   if (packet.affectedRows !== 1) {
@@ -101,7 +106,7 @@ export async function insertMany<T>(
     if (table.updatedDate) {
       data[table.updatedDate.column] = updatedDate as any
     }
-    values.push(...columns.map(col => data[col]))
+    values.push(...columns.map(col => processColumnValue(data[col])))
   })
 
   const res = await promiseQuery(config, connection, sql, values)

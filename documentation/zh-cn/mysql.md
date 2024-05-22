@@ -151,12 +151,14 @@ export const tableUser: Table<User> = {
 实体类字段和查询方法的返回对象的字段有一套类型映射规则，这个需要写的时间注意，**数据库里是什么类型，就必须写对应的 js 原生类型**。
 类型映射逻辑不支持修改，下面是对照表：
 
-| js 原生类型 | mysql 字段类型                                                       |
-| :---------- | :------------------------------------------------------------------- |
-| Number      | TINYINT,SMALLINT,INT,MEDIUMINT,YEAR.FLOAT,DOUBLE,BIGINT              |
-| Date        | TIMESTAMP,DATE,DATETIME                                              |
-| Buffer      | TINYBLOB,MEDIUMBLOB,LONGBLOB,BLOB,BINARY,VARBINARY,BIT               |
-| String      | CHAR,VARCHAR,TINYTEXT,MEDIUMTEXT,LONGTEXT,TEXT,ENUM,SET,DECIMAL,TIME |
+| js 原生类型     | mysql 字段类型                                                       |
+| :-------------- | :------------------------------------------------------------------- |
+| Boolean         | TINYINT                                                              |
+| Number          | TINYINT,SMALLINT,INT,MEDIUMINT,YEAR.FLOAT,DOUBLE,BIGINT              |
+| Date            | TIMESTAMP,DATE,DATETIME                                              |
+| Buffer          | TINYBLOB,MEDIUMBLOB,LONGBLOB,BLOB,BINARY,VARBINARY,BIT               |
+| String          | CHAR,VARCHAR,TINYTEXT,MEDIUMTEXT,LONGTEXT,TEXT,ENUM,SET,DECIMAL,TIME |
+| Object 或 Array | JSON                                                                 |
 
 对于可空字段，可以在 ts 里也定义为可空：
 
@@ -302,6 +304,108 @@ await manager.modify(`update user set nickname='无名' where nickname='佚名'`
 | paginate      | 分页查询 ，危险操作，基于 find 和 count                                     |
 | query         | 自定义 sql 查询，返回记录列表，支持预编译 sql                               |
 | modify        | 执行自定义 sql，返回操作记录数 ，支持预编译 sql                             |
+
+### json 类型
+
+0.2.0 版本开始增加了对 JSON 类型的有限支持，可以正常插入和查询，过滤条件也部分支持了 mysql 的 json 相关函数。
+相比使用字符类型来存储 json ，然后在程序里反序列化解析，使用 json 格式要方便很多，开发更高效。
+下面是一个完整的例子。
+
+数据库建表语句，字段的类型设置为 json 。
+
+```sql
+CREATE TABLE
+  question (
+    id VARCHAR(32) PRIMARY KEY,
+    title VARCHAR(256) NOT NULL COMMENT '标题',
+    options json NOT NULL COMMENT '选项列表，json 数组',
+    question_setter json NOT NULL COMMENT '出题人信息，json 对象',
+    create_at BIGINT UNSIGNED NOT NULL COMMENT '创建时间',
+    update_at BIGINT UNSIGNED NOT NULL COMMENT '更新时间'
+  ) ENGINE = InnoDB DEFAULT CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '试题';
+```
+
+表映射配置，json 类型对应的字段申明为自定义的格式即可。
+
+```ts
+// 选项
+export interface QuesOption {
+  title: string
+  correct?: boolean
+}
+// 出题人
+export interface QuestionSetter {
+  id: string
+  name: string
+}
+// 试题
+export interface Question {
+  id: string
+  title: string
+  // 选项
+  options: QuesOption[]
+  // 出题人
+  question_setter: QuestionSetter
+  create_at?: number
+  update_at?: number
+}
+
+export const tableQuestion: Table<Question> = {
+  tableName: 'question',
+  id: 'id',
+  columns: ['title', 'options', 'question_setter'],
+  createdDate: {
+    type: 'number',
+    column: 'create_at'
+  },
+  updatedDate: {
+    type: 'number',
+    column: 'update_at'
+  }
+}
+```
+
+常用的方法，使用起来没有任何区别，json 按字段定义的格式传递数据即可。
+
+```ts
+await getMysqlManager().insert(tableQuestion, {
+  id: '003',
+  title: '下面哪个类型是 Mysql 不支持的',
+  options: [
+    { title: 'TINYINT' },
+    { title: 'BOOLEAN', correct: true },
+    { title: 'CHAR' },
+    { title: 'TEXT' }
+  ],
+  question_setter: { id: 'x333', name: '小李老师' }
+})
+// 查询到的数据是完整的，不需要再做任何处理，相应的 json 字段就是对应的类型
+const q1 = await  getMysqlManager().findById(tableQuestion, '003')
+q1.question_setter.name // 小李老师
+```
+
+查询条件支持 json_extract 和 json_length，凡是支持查询条件的地方都可以使用，
+使用时不能再传递列名，取而代之的是一个元组。
+
+```ts
+await mananger.findFirst(tableQuestion, c =>
+  // 查询 question_setter 字段下的属性 id 为 x333 的记录
+  c.eq(['json_extract', 'question_setter', '$.id'], 'x333')
+)
+await mananger.findFirst(tableQuestion, c =>
+  // 查询 options 字段中第一个元素的 title 属性为 地球 的记录
+  c.eq(['json_extract', 'options', '$[0].title'], '地球')
+)
+await mananger.find({
+  table: tableQuestion,
+  // 查询 options 字段的元素数量大于等于 5 的记录，也就是查询选项多于5个的试题
+  criteria: c => c.gte(['json_length', 'options'], 5)
+})
+```
+
+json_extract 和 json_length 查询都需要传递元组，第一个参数就是查询的类型，第二个参数是字段名称，
+json_extract 还有第三个参数是属性路径。属性路径的格式和 js 获取属性的语法是一样的，只是用 $ 来指代字段的值。
+
 
 ### 预编译 sql
 

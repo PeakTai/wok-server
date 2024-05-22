@@ -4,6 +4,7 @@ import { Table } from '../../table-info'
 import { MixCriteria, buildQuery } from './criteria'
 import { promiseQuery } from '../utils'
 import { MysqlConfig } from '../../config'
+import { processColumnValue } from './utils'
 
 /**
  * 更新
@@ -36,7 +37,7 @@ export async function update<T>(
   // 值
   const values: any[] = [
     table.tableName,
-    ...columns.flatMap(col => [col, data[col]]),
+    ...columns.flatMap(col => [col, processColumnValue(data[col])]),
     table.id,
     data[table.id]
   ]
@@ -94,7 +95,7 @@ function updatorToSql<T>(table: Table<T>, updater: Updater<T>): { sql: string; v
       continue
     }
     updateFragList.push(' ?? = ? ')
-    values.push(column, val)
+    values.push(column, processColumnValue(val))
   }
   return { sql: updateFragList.join(','), values }
 }

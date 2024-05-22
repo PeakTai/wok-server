@@ -7,6 +7,7 @@ import { assertAsyncThrows, runTestAsync, sleep } from '../utils'
 import { tableBook } from './book'
 import { tableDbVersion } from './db-version'
 import { User, tableUser } from './user'
+import { tableQuestion } from './question'
 
 describe('mysql 组件测试', () => {
   before(
@@ -891,6 +892,121 @@ describe('mysql 组件测试', () => {
       ok(!(await manager.existsBy(tableBook, { name: '晏子春秋' })))
       ok(!(await manager.existsBy(tableBook, { name: '战国策' })))
       ok(!(await manager.existsBy(tableBook, { name: '左传' })))
+    })
+  )
+  it(
+    'json类型测试',
+    runTestAsync(async () => {
+      // 插入几条测试数据
+      const mananger = getMysqlManager()
+      // 以不同的方式插入，分别测试 insert 和  insertMany 是否能支持
+      await mananger.insertMany(tableQuestion, [
+        {
+          id: '001',
+          title: '以下哪些国家是欧洲的',
+          options: [
+            { title: '英国', correct: true },
+            { title: '阿尔及利亚' },
+            { title: '塞尔维亚', correct: true },
+            { title: '波兰', correct: true }
+          ],
+          question_setter: { id: 'x000', name: '王老师' }
+        },
+        {
+          id: '002',
+          title: '下面哪个是恒星',
+          options: [
+            { title: '地球' },
+            { title: '火星' },
+            { title: '太阳', correct: true },
+            { title: '月亮' }
+          ],
+          question_setter: { id: 'x333', name: '小李老师' }
+        }
+      ])
+      await mananger.insert(tableQuestion, {
+        id: '003',
+        title: '下面哪个类型是 Mysql 不支持的',
+        options: [
+          { title: 'TINYINT' },
+          { title: 'BOOLEAN', correct: true },
+          { title: 'CHAR' },
+          { title: 'TEXT' }
+        ],
+        question_setter: { id: 'x333', name: '小李老师' }
+      })
+
+      // 查询验证
+      const q1 = await mananger.findById(tableQuestion, '001')
+      ok(q1)
+      equal('以下哪些国家是欧洲的', q1.title)
+      equal(4, q1.options.length)
+      equal('阿尔及利亚', q1.options[1].title)
+      equal('王老师', q1.question_setter.name)
+
+      // 使用 json 查询来验证
+      const q2 = await mananger.findFirst(tableQuestion, c =>
+        c
+          .eq(['json_extract', 'question_setter', '$.id'], 'x333')
+          .eq(['json_extract', 'options', '$[0].title'], '地球')
+      )
+      ok(q2)
+      equal('002', q2.id)
+      equal('下面哪个是恒星', q2.title)
+      equal('小李老师', q2.question_setter.name)
+      equal(true, q2.options[2].correct)
+      equal('月亮', q2.options[3].title)
+      // 用选项数组中的元素来查询
+      const q3 = await mananger.findFirst(tableQuestion, c =>
+        c.eq(['json_extract', 'options', '$[0].title'], '地球')
+      )
+      ok(q3)
+      equal(q2.id, q3.id)
+
+      // 修改
+      await mananger.partialUpdate(tableQuestion, {
+        id: '001',
+        question_setter: { id: 'x003', name: '于老师' }
+      })
+      const q4 = await mananger.findById(tableQuestion, '001')
+      ok(q4)
+      ok(q4.question_setter)
+      equal('x003', q4.question_setter.id)
+      equal('于老师', q4.question_setter.name)
+
+      q1.options.push({ title: '阿根廷' })
+      await mananger.update(tableQuestion, q1)
+      const q5 = await mananger.findById(tableQuestion, '001')
+      ok(q5)
+      equal(5, q5.options.length)
+      equal('阿根廷', q5.options[4].title)
+
+      // 查询选项达到5个的试题，验证 json_length
+      const q6 = await mananger.findFirst(tableQuestion, c => c.gte(['json_length', 'options'], 5))
+      ok(q6)
+      equal(5, q6.options.length)
+      equal('英国', q6.options[0].title)
+      equal('阿根廷', q6.options[4].title)
+
+      await mananger.updateMany({
+        table: tableQuestion,
+        query: c => c.eq(['json_extract', 'question_setter', '$.id'], 'x333'),
+        updater: {
+          // 暂时没有支持 json_set 这类函数来设置字段，只能传入整个内容
+          // 这些操作是比较低频的，以后的版本再考虑吧
+          question_setter: { id: 'x333', name: '李帅' }
+        }
+      })
+      const list1 = await mananger.find({
+        table: tableQuestion,
+        criteria: c => c.eq(['json_extract', 'question_setter', '$.id'], 'x333'),
+        orderBy: [['id', 'asc']]
+      })
+      equal(2, list1.length)
+      equal('002', list1[0].id)
+      equal('003', list1[1].id)
+      equal('李帅', list1[0].question_setter.name)
+      equal('李帅', list1[1].question_setter.name)
     })
   )
 })
