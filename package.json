@@ -1,6 +1,6 @@
 {
   "name": "wok-server",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "packageManager": "pnpm@8.9.0",
   "description": "一个基于 NodeJs 和 TypeScript 的后端框架，轻量级、克制、简洁。A lightweight, restrained, and concise backend framework based on Node.js and TypeScript.",
   "scripts": {
@@ -23,6 +23,11 @@
   ],
   "author": "peak",
   "license": "ISC",
+  "homepage": "https://gitee.com/tai/wok-server",
+  "repository": {
+    "type": "git",
+    "url": "https://gitee.com/tai/wok-server.git"
+  },
   "publishConfig": {
     "registry": "https://registry.npmjs.org"
   },
