@@ -7,6 +7,10 @@ export function processColumnValue(value: any) {
   if (value instanceof Date) {
     return value
   }
+  // buffer 也是
+  if (value instanceof Buffer) {
+    return value
+  }
   // json
   if (typeof value === 'object') {
     return JSON.stringify(value)
