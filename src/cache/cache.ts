@@ -100,14 +100,17 @@ export class Cache {
     }
     // 创建新的异步流程
     const promise = Promise.resolve().then(async () => {
-      const finalExpireInSeconds =
-        typeof expiresInSeconds === 'number' ? expiresInSeconds : config.defaultExpireInSeconds
-      // 计算值
-      const res = provider()
-      const val = res instanceof Promise ? await res : res
-      this.put(key, val, finalExpireInSeconds)
-      this.promiseMap.delete(key)
-      return val
+      try {
+        const finalExpireInSeconds =
+          typeof expiresInSeconds === 'number' ? expiresInSeconds : config.defaultExpireInSeconds
+        // 计算值
+        const res = provider()
+        const val = res instanceof Promise ? await res : res
+        this.put(key, val, finalExpireInSeconds)
+        return val
+      } finally {
+        this.promiseMap.delete(key)
+      }
     })
     this.promiseMap.set(key, promise)
     return promise
