@@ -4,7 +4,7 @@
 
 主要功能：配置，日志，国际化，校验，缓存，MVC，mysql，mongodb ，周期任务 。
 
-[查看文档](./documentation/zh-cn/index.md)
+[查看文档](https://gitee.com/tai/wok-server/blob/master/documentation/zh-cn/index.md)
 
 ## 优点
 
@@ -39,7 +39,7 @@ startWebServer({
 
 上面的代码启动了 web 服务，访问路径 `http://localhost:8080` 将输出文本 “Hello world !”。
 
-相关的设置可以通过环境变量来修改，查看[完整文档](./documentation/zh-cn/index.md)了解细节。
+相关的设置可以通过环境变量来修改，查看[完整文档](https://gitee.com/tai/wok-server/blob/master/documentation/zh-cn/index.md)了解细节。
 
 ## 一些问题的说明
 
