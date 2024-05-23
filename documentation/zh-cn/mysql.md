@@ -406,6 +406,20 @@ await mananger.find({
 json_extract 和 json_length 查询都需要传递元组，第一个参数就是查询的类型，第二个参数是字段名称，
 json_extract 还有第三个参数是属性路径。属性路径的格式和 js 获取属性的语法是一样的，只是用 $ 来指代字段的值。
 
+```ts
+// 批量修改出题人 id 为 x333 的记录
+await mananger.updateMany({
+  table: tableQuestion,
+  query: c => c.eq(['json_extract', 'question_setter', '$.id'], 'x333'),
+  updater: {
+    // 更新 question_setter 信息
+    question_setter: { id: 'x333', name: '李帅' }
+  }
+})
+```
+
+更新目前并没有支持 json_set 等函数，无法做到只更新 json 字段中的部分信息，只能整个更新。
+这类的操作使用的较少，后续的版本再考虑要不要支持。
 
 ### 预编译 sql
 
