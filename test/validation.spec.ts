@@ -14,7 +14,6 @@ import {
   validate
 } from '../src'
 import { runTestAsync } from './utils'
-import { error } from 'console'
 
 describe('校验', () => {
   it(
@@ -360,7 +359,7 @@ describe('校验', () => {
         profile: {
           theme: string
         }
-        tags: Tag[]
+        tags?: Tag[]
       }
       throws(
         () =>
@@ -382,19 +381,27 @@ describe('校验', () => {
                 })
               ],
               tags: [
-                array({
-                  id: [notBlank()],
-                  name: [notBlank()],
-                  permissinos: [
-                    notNull(),
-                    // 这里无法自动进行推断类型，必须指定类型，否则编译会有错误
-                    // 层级过深就必须指定泛型
-                    plainObject<{ edit?: boolean; read?: boolean }>({
-                      edit: [notNull()],
-                      read: [notNull()]
-                    })
-                  ]
-                })
+                // 标签不得超过5个
+                maxLength(5),
+                // 标签列表不能为空
+                notNull(),
+                // 校验元素
+                array([
+                  // 元素不能为空
+                  notNull(),
+                  // 元素属性校验
+                  plainObject({
+                    id: [notBlank()],
+                    name: [notBlank()],
+                    permissinos: [
+                      notNull(),
+                      plainObject({
+                        edit: [notNull()],
+                        read: [notNull()]
+                      })
+                    ]
+                  })
+                ])
               ]
             }
           ),
@@ -402,7 +409,7 @@ describe('校验', () => {
           assert(e instanceof ValidationException)
           // name 校验错误
           equal('array', e.validator)
-          equal('tags.[1].permissinos.read', e.propertyPath)
+          equal('tags[1].permissinos.read', e.propertyPath)
           equal('不能为空', e.errMsg)
           return true
         }

@@ -1,10 +1,10 @@
-import { PropValidator, ValidationOpts } from '..'
+import { PropValidator } from '..'
 import { getI18n } from '../../i18n'
 
 /**
  * 校验数组的条目.
  */
-export function array<J>(opts: ValidationOpts<J>): PropValidator<J[]> {
+export function array<T>(opts: PropValidator<T>[]): PropValidator<T[] | undefined> {
   const validator = 'array'
   return val => {
     if (!val) {
@@ -15,19 +15,15 @@ export function array<J>(opts: ValidationOpts<J>): PropValidator<J[]> {
     }
     // 条目处理
     for (let i = 0; i < val.length; i++) {
-      const item = val[i] as J
-      for (const validation of Object.entries(opts)) {
-        const [prop, validators] = validation
-        const val = item[prop as keyof J]
-        for (const validate of validators as PropValidator<any>[]) {
-          const result = validate(val)
-          if (!result.ok) {
-            const propPath = [`[${i}]`, prop]
-            if (result.propPath) {
-              propPath.push(...result.propPath)
-            }
-            return { ok: false, validator, message: result.message, propPath }
+      const item = val[i] as T
+      for (const validation of opts) {
+        const result = validation(item)
+        if (!result.ok) {
+          const propPath = [`[${i}]`]
+          if (result.propPath) {
+            propPath.push(...result.propPath)
           }
+          return { ok: false, validator, message: result.message, propPath }
         }
       }
     }

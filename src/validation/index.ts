@@ -39,7 +39,18 @@ export function validate<T>(obj: T, opts: ValidationOpts<T>) {
         if (result.propPath) {
           propPath.push(...result.propPath)
         }
-        throw new ValidationException(result.message, result.validator, propPath.join('.'), val)
+        const fullPath = propPath
+          .map((prop, idx) => {
+            if (idx === 0) {
+              return prop
+            }
+            if (prop.startsWith('[') && prop.endsWith(']')) {
+              return prop
+            }
+            return '.' + prop
+          })
+          .join('')
+        throw new ValidationException(result.message, result.validator, fullPath, val)
       }
     }
   }

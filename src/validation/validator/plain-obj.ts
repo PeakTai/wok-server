@@ -5,7 +5,7 @@ import { PropValidator, ValidationOpts } from '..'
  * @param opts
  * @returns
  */
-export function plainObject<T>(opts: ValidationOpts<T>): PropValidator<T> {
+export function plainObject<T>(opts: ValidationOpts<Exclude<T, undefined>>): PropValidator<T> {
   const validator = 'plainObject'
   return val => {
     if (!val) {

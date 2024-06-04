@@ -1,8 +1,8 @@
 import { PropValidator } from '..'
 import { getI18n } from '../../i18n'
 /**
- * 最大值校验.
- * @param max 最大值
+ * 最小值校验.
+ * @param min 最小值
  * @param msg 错误消息
  */
 export function min<T>(min: number, msg?: string): PropValidator<T> {

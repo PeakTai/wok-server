@@ -32,8 +32,6 @@ validate(
 | array       | 数组校验,设置元素对象的校验规则来校验每一个元素      |
 | plainObject | 对象校验,如果属性是对象可进一步校验属性值的属性      |
 
-**注意: array 和 plainObject 在校验层级深的对象时,可能无法拥有准确的类型推断,必须在使用这两个函数时指定泛型,比如 `plainObject<User>({...})`，否则编译会报错。**
-
 下面是对象和数组嵌套的校验示例。
 
 ```ts
@@ -66,19 +64,27 @@ validate<User>(
       })
     ],
     tags: [
-      array({
-        id: [notBlank()],
-        name: [notBlank()],
-        permissinos: [
-          notNull(),
-          // 这里无法自动进行推断类型，必须指定类型，否则编译会有错误
-          // 层级过深就必须指定泛型
-          plainObject<{ edit?: boolean; read?: boolean }>({
-            edit: [notNull()],
-            read: [notNull()]
-          })
-        ]
-      })
+      // 标签不得超过5个
+      maxLength(5),
+      // 标签列表不能为空
+      notNull(),
+      // 校验标签数组的元素
+      array([
+        // 元素不能为空
+        notNull(),
+        // 元素的属性校验
+        plainObject({
+          id: [notBlank()],
+          name: [notBlank()],
+          permissinos: [
+            notNull(),
+            plainObject({
+              edit: [notNull()],
+              read: [notNull()]
+            })
+          ]
+        })
+      ])
     ]
   }
 )
