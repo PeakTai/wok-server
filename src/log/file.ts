@@ -1,5 +1,5 @@
-import { appendFileSync, existsSync, mkdirSync } from 'fs'
-import { readdir, rm } from 'fs/promises'
+import { existsSync } from 'fs'
+import { readdir, rm, appendFile, mkdir } from 'fs/promises'
 import { EOL } from 'os'
 import { dirname, resolve } from 'path'
 import { scheduleDailyTask } from '../task'
@@ -13,13 +13,7 @@ let QUEUE: string[] = []
  */
 export function fileStore(log: string): void {
   QUEUE.push(log)
-  setTimeout(() => {
-    try {
-      write()
-    } catch (e) {
-      console.error('Writing log file failed', e)
-    }
-  }, 0)
+  setTimeout(() => write().catch(e => console.error('Writing log file failed', e)), 0)
 }
 
 function buildFilePath() {
@@ -34,18 +28,18 @@ function buildFilePath() {
   return resolve(config.fileDir, fileName)
 }
 
-function write() {
+async function write() {
   if (!QUEUE.length) {
     return
   }
   const path = buildFilePath()
   const dir = dirname(path)
   if (!existsSync(dir)) {
-    mkdirSync(dir)
+    await mkdir(dir, { recursive: true })
   }
   const lines = QUEUE.join(EOL)
-  appendFileSync(path, lines)
   QUEUE = []
+  await appendFile(path, lines)
 }
 
 if (config.file) {
