@@ -94,6 +94,16 @@ function updatorToSql<T>(table: Table<T>, updater: Updater<T>): { sql: string; v
       continue
     }
     const val = updater[column]
+    // undefined 表示不参与更新，作用是方便编写一些特殊的逻辑，比如特定情况下不更新
+    if (val === undefined) {
+      continue
+    }
+    // 兼容将值设置成 null 的情况，和 ['setNull’] 等同
+    if (val === null) {
+      updateFragList.push(' ?? = NULL ')
+      values.push(column)
+      continue
+    }
     if (Array.isArray(val)) {
       // set null
       if (val[0] === 'setNull') {
