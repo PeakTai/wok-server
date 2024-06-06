@@ -56,7 +56,21 @@ export async function update<T>(
  * 更新器
  */
 export type Updater<T> = Partial<{
-  [key in keyof T]: T[key] | undefined | ['setNull'] | ['inc', number]
+  // 普通的更新赋值
+  [key in keyof T]:
+    | T[key]
+    // undefined 表示不参与更新，作用是方便编写一些特殊的逻辑，比如特定情况下不更新
+    | undefined
+    // 将字段置空，置空是不能使用 null 类型的，必须使用元组 ['setNull']
+    | ['setNull']
+    // 将字段自增
+    | ['inc', number]
+    /**
+     * 设置一个字段的值，和直接赋值是一样的，作用是解决一些特殊的情况的冲突
+     * 比如将 json 字段的值设置为 ['setNull'] ,这就会被认为是要置空，
+     * 使用 ['set',['setNull']] 就可以解决这个问题
+     */
+    | ['set', T[key]]
 }>
 /**
  * 转换更新器
@@ -92,7 +106,11 @@ function updatorToSql<T>(table: Table<T>, updater: Updater<T>): { sql: string; v
         values.push(column, column, val[1])
         continue
       }
-      continue
+      if (val[0] === 'set') {
+        updateFragList.push(' ?? = ? ')
+        values.push(column, processColumnValue(val[1]))
+        continue
+      }
     }
     updateFragList.push(' ?? = ? ')
     values.push(column, processColumnValue(val))

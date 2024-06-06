@@ -32,6 +32,7 @@ describe('mysql 组件测试', () => {
         await execute(conn, 'drop table db_version')
         await execute(conn, 'drop table user')
         await execute(conn, 'drop table book')
+        await execute(conn, 'drop table question')
       } finally {
         pool.releaseConnection(conn)
       }
@@ -1007,6 +1008,40 @@ describe('mysql 组件测试', () => {
       equal('003', list1[1].id)
       equal('李帅', list1[0].question_setter.name)
       equal('李帅', list1[1].question_setter.name)
+
+      // 更改选项测试，选项是数组，一些特定的更新操作也是带类型限制的数组（如 ['setNull]），会起冲突
+      // 测试能否避免冲突
+      await mananger.partialUpdate(tableQuestion, {
+        id: '001',
+        options: [
+          { title: '法国', correct: true },
+          { title: '日本', correct: false }
+        ]
+      })
+      const q7 = await mananger.findById(tableQuestion, '001')
+      ok(q7)
+      equal(q7.options.length, 2)
+      equal(q7.options[0].title, '法国')
+      ok(q7.options[0].correct)
+      equal(q7.options[1].title, '日本')
+      // 使用 ['set'] 来局部设置
+      await mananger.partialUpdate(tableQuestion, {
+        id: '001',
+        options: [
+          'set',
+          [
+            { title: '加拿大', correct: false },
+            { title: '塞尔维亚', correct: true },
+            { title: '越南', correct: false }
+          ]
+        ]
+      })
+      const q8 = await mananger.findById(tableQuestion, '001')
+      ok(q8)
+      equal(q8.options.length, 3)
+      equal(q8.options[0].title, '加拿大')
+      equal(q8.options[1].title, '塞尔维亚')
+      ok(q8.options[1].correct)
     })
   )
 })
