@@ -421,6 +421,64 @@ await mananger.updateMany({
 更新目前并没有支持 json_set 等函数，无法做到只更新 json 字段中的部分信息，只能整个更新。
 这类的操作使用的较少，后续的版本再考虑要不要支持。
 
+### 特殊修改操作
+
+partialUpdate 和 updateMany 方法支持局部修改一些字段，并且支持一些特殊的修改操作，比如自增和置空。
+
+```ts
+await manager.updateMany(tableUser, c => c.between('balance', 23, 24), {
+  // 将 balance 增加 2
+  balance: ['inc', 2],
+  // 将 consume_type 置空
+  consume_type:['setNull']
+})
+```
+
+如果将一个字段的值设置为 null 也可以置空，但是这要求设置 ts 类型支持。
+
+```ts
+interface User {
+  id: string
+  // 将 role 的类型设置包含 null
+  role: string | null
+}
+
+await manager.partialUpdate(tableUser, {
+  id: '001',
+  // 等同于 role:['setNull']
+  role: null
+})
+```
+
+之所以采用使用特殊的数组来这种方式，主要目的是为了方便，不必引入新的类型，代码编写方便。
+**但是，在引入 json 类型后，如果 json 字段是数组就可能会和特殊修改操作有冲突，**
+**比如将 json 字段的值设置为 ['setNull']，和置空操作是一样的，最终会被认为要置空字段**。
+
+```ts
+// record 实体定义
+interface Record {
+  id: string
+  // extra 字段是一个 json 数组
+  extra: string[]
+}
+await manager.partialUpdate(tableRecord, {
+  id: '001',
+  // 这样操作会被认为要将 extra 置空
+  extra: ['setNull']
+})
+```
+
+组件提供了 set 操作来解决冲突，也是一个特殊的数组，第一个元素是 'set'，第二个元素是要设置的值。
+
+```ts
+await manager.partialUpdate(tableRecord, {
+  id: '001',
+  // 这样就可以将 extra 设置为 ['setNull']
+  extra: ['set',['setNull']]
+})
+```
+
+
 ### 预编译 sql
 
 使用 query 或 midify 方法传入自定义 sql 时，sql 是支持预编译的，参数值使用 ? (问号)来占位，表名和
