@@ -1,7 +1,6 @@
 import { equal, ok } from 'assert'
 import { IncomingHttpHeaders, OutgoingHttpHeaders, request } from 'http'
-import { Readable } from 'stream'
-import { createGunzip } from 'zlib'
+import { gunzip } from 'zlib'
 import { startWebServer, stopWebServer } from '../../src'
 import { runTestAsync } from '../utils'
 
@@ -40,6 +39,8 @@ async function get(path: string, headers?: OutgoingHttpHeaders): Promise<RespInf
 describe('静态文件测试', () => {
   before(
     runTestAsync(async () => {
+      // 禁用静态缓存
+      process.env.SERVER_CACHE_ENABLE = 'false'
       await startWebServer({
         static: {
           '/': { dir: 'test/mvc/static', cacheAge: 300 }
@@ -82,50 +83,53 @@ describe('静态文件测试', () => {
     equal(cacheControl.trim(), 'max-age=300')
     ok(res.headers['last-modified'])
   })
-  it('静态文件 range 消息头测试', async () => {
-    let res = await get('/l2-dir/Free_Test_Data_1MB_MP3.mp3')
-    // 正常获取应该返回全部内容，不会有 Content-Range
-    equal(res.buffer.byteLength, 1051422)
-    equal(res.status, 200)
-    // 指定范围
-    res = await get('/l2-dir/Free_Test_Data_1MB_MP3.mp3', {
-      Range: 'bytes=200-999'
+  it(
+    '静态文件 range 消息头测试',
+    runTestAsync(async () => {
+      let res = await get('/l2-dir/Free_Test_Data_1MB_MP3.mp3')
+      // 正常获取应该返回全部内容，不会有 Content-Range
+      equal(res.buffer.byteLength, 1051422)
+      equal(res.status, 200)
+      // 指定范围
+      res = await get('/l2-dir/Free_Test_Data_1MB_MP3.mp3', {
+        Range: 'bytes=200-999'
+      })
+      let contentRange = res.headers['content-range']
+      ok(!!contentRange)
+      ok(contentRange.startsWith('bytes'))
+      let range = contentRange.substring(5).trim()
+      equal(range, '200-999/1051422')
+      equal(res.status, 206)
+      // 前后都包含
+      equal(res.buffer.byteLength, 999 - 200 + 1)
+      // 只指定 start
+      res = await get('/l2-dir/Free_Test_Data_1MB_MP3.mp3', {
+        Range: 'bytes=999-'
+      })
+      contentRange = res.headers['content-range']
+      ok(!!contentRange)
+      ok(contentRange.startsWith('bytes'))
+      range = contentRange.substring(5).trim()
+      equal(range, '999-1051421/1051422')
+      equal(res.status, 206)
+      // 前后都包含
+      equal(res.buffer.byteLength, 1051421 - 999 + 1)
+      // 测试不合法的 range
+      res = await get('/l2-dir/Free_Test_Data_1MB_MP3.mp3', {
+        Range: 'bytes=-3-'
+      })
+      equal(res.status, 416)
+      equal(res.buffer.toString('utf-8'), '{"message":"Range not satisfiable，start is NaN."}')
+      res = await get('/l2-dir/Free_Test_Data_1MB_MP3.mp3', {
+        Range: 'bytes=788-1051422'
+      })
+      equal(res.status, 416)
+      equal(
+        res.buffer.toString('utf-8'),
+        '{"message":"Range not satisfiable，end must not be greater than 1051421."}'
+      )
     })
-    let contentRange = res.headers['content-range']
-    ok(!!contentRange)
-    ok(contentRange.startsWith('bytes'))
-    let range = contentRange.substring(5).trim()
-    equal(range, '200-999/1051422')
-    equal(res.status, 206)
-    // 前后都包含
-    equal(res.buffer.byteLength, 999 - 200 + 1)
-    // 只指定 start
-    res = await get('/l2-dir/Free_Test_Data_1MB_MP3.mp3', {
-      Range: 'bytes=999-'
-    })
-    contentRange = res.headers['content-range']
-    ok(!!contentRange)
-    ok(contentRange.startsWith('bytes'))
-    range = contentRange.substring(5).trim()
-    equal(range, '999-1051421/1051422')
-    equal(res.status, 206)
-    // 前后都包含
-    equal(res.buffer.byteLength, 1051421 - 999 + 1)
-    // 测试不合法的 range
-    res = await get('/l2-dir/Free_Test_Data_1MB_MP3.mp3', {
-      Range: 'bytes=-3-'
-    })
-    equal(res.status, 416)
-    equal(res.buffer.toString('utf-8'), '{"message":"Range not satisfiable，start is NaN"}')
-    res = await get('/l2-dir/Free_Test_Data_1MB_MP3.mp3', {
-      Range: 'bytes=788-1051422'
-    })
-    equal(res.status, 416)
-    equal(
-      res.buffer.toString('utf-8'),
-      '{"message":"Range not satisfiable，end must not be greater than 1051421"}'
-    )
-  })
+  )
   it('静态文件首页测试', async () => {
     // 如果直接访问一个目录的地址，则会返回这个目录下的 index.html 中的内容，否则返回４０４
     let res = await get('/home')
@@ -166,13 +170,14 @@ describe('静态文件测试', () => {
       const encoding = res.headers['content-encoding']
       equal(encoding, 'gzip')
 
-      let buffer = Buffer.alloc(0)
-      await new Promise<void>((resolve, reject) => {
-        const writer = Readable.from(res.buffer).pipe(createGunzip())
-        writer.on('data', data => {
-          buffer = Buffer.concat([buffer, data])
+      const buffer = await new Promise<Buffer>((resolve, reject) => {
+        gunzip(res.buffer, (err, res2) => {
+          if (err) {
+            reject(err)
+          } else {
+            resolve(res2)
+          }
         })
-        writer.once('finish', resolve).once('error', reject)
       })
       const text = buffer.toString('utf-8')
 

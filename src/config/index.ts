@@ -34,6 +34,25 @@ export function registerConfig<T extends {}>(
   if (configEnvMap.has(envPrefix)) {
     throw new ConfigException(`The prefix "${envPrefix}" has already been registered`)
   }
+  const config = generateConfig(defaultConfig, envPrefix, validation)
+  configEnvMap.set(envPrefix, config)
+  return config
+}
+
+/**
+ * 根据环境变量来生成配置对象，与 registerConfig 的参数是一致的，和 registerConfig 不同的是
+ * generateConfig 可以多次重复使用，方便在运行时更改环境变量后再生成配置，而调用 registerConfig
+ * 一旦注册后不能再被更改。之所以这样设计是为了方便程序的测试，模拟不同的环境来运行程序，和其它的
+ * 一些特殊需求。
+ * @param defaultConfig
+ * @param envPrefix
+ * @param validation
+ */
+export function generateConfig<T extends {}>(
+  defaultConfig: T,
+  envPrefix: string,
+  validation?: ValidationOpts<T>
+) {
   // 环境变量匹配
   for (const propName in defaultConfig) {
     const defaultVal = defaultConfig[propName]
@@ -59,7 +78,6 @@ export function registerConfig<T extends {}>(
       )
     }
   }
-  configEnvMap.set(envPrefix, defaultConfig)
   return defaultConfig
 }
 
