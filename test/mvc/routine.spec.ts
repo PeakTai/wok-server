@@ -1,9 +1,10 @@
-import { deepStrictEqual, equal } from 'assert'
+import { deepStrictEqual, equal, ok } from 'assert'
 import { IncomingHttpHeaders } from 'http'
 import { ValidationException, doRequest, startWebServer, stopWebServer } from '../../src'
 import { runTestAsync } from '../utils'
 import { htmlHandler } from './html-handler'
 import { jsonHandler } from './json-handler'
+import { getJsonData, updateJsonData, getCacheJsonData } from './json-cache-handlers'
 
 async function postJson(
   url: string,
@@ -22,21 +23,27 @@ async function postJson(
       'Content-Type': 'application/json; charset=utf-8'
     }
   })
+  const bodyText = res.body.toString('utf8')
   return {
     status: res.status,
     headers: res.headers,
-    body: JSON.parse(res.body.toString('utf8'))
+    body: bodyText ? JSON.parse(bodyText) : {}
   }
 }
 
 describe('mvc 常规测试', async () => {
   before(
     runTestAsync(async () => {
+      process.env.SERVER_TLS_ENABLE = 'false'
+      process.env.SERVER_STATIC_CACHE_ENABLE = 'false'
       // 服务的环境变量设置
       await startWebServer({
         routers: {
           '/text': async exchange => exchange.respondText('hello'),
           '/json': jsonHandler,
+          '/json/data/get': getJsonData,
+          '/json/data/cache/get': getCacheJsonData,
+          '/json/data/update': updateJsonData,
           '/html': htmlHandler,
           '*': async exchange => exchange.respondText('404', 404)
         },
@@ -118,6 +125,46 @@ describe('mvc 常规测试', async () => {
       res = await postJson(url, { nickname: 'Satan', skills: ['Java'], age: 35 })
       equal(res.status, 500)
       equal(res.body.message, '名字不可以叫 Satan')
+    })
+  )
+  it(
+    'JSON 缓存',
+    runTestAsync(async () => {
+      // 先请求一次详情，这样就有缓存了
+      // 然后调用接口修改进行修改，再请求还是老样子，证明是缓存
+      // 再调用一次修改接口，设置清理缓存的参数，然后请求详情是最新数据，说明缓存清理成功
+      const detailUrl = 'http://localhost:8080/json/data/get'
+      const detailCacheUrl = 'http://localhost:8080/json/data/cache/get'
+      const updateUrl = 'http://localhost:8080/json/data/update'
+      const res = await postJson(detailCacheUrl, {})
+      equal(res.status, 200)
+      equal(res.body.id, '007')
+      equal(res.body.name, '测试数据')
+      equal(res.body.createBy, '纪老师')
+
+      await postJson(updateUrl, {
+        name: '新的名字'
+      })
+      // 请求到的仍然是缓存数据
+      const res2 = await postJson(detailCacheUrl, {})
+      equal(res2.status, 200)
+      equal(res2.body.name, '测试数据')
+
+      // 无缓存的数据是最新的
+      const res3 = await postJson(detailUrl, {})
+      equal(res3.status, 200)
+      equal(res3.body.name, '新的名字')
+
+      // 修改同时清理缓存
+      await postJson(updateUrl, {
+        name: '这是新的名字',
+        clearCache: true
+      })
+
+      // 这次缓存接口返回的也是最新的数据
+      const res4 = await postJson(detailCacheUrl, {})
+      equal(res4.status, 200)
+      equal(res4.body.name, '这是新的名字')
     })
   )
   it(

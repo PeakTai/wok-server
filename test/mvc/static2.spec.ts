@@ -40,6 +40,8 @@ describe('静态文件测试2', () => {
   it(
     '静态配置校验测试',
     runTestAsync(async () => {
+      process.env.SERVER_TLS_ENABLE = 'false'
+      process.env.SERVER_STATIC_CACHE_ENABLE = 'false'
       // 重复路径
       await assertAsyncThrows({
         run: () =>

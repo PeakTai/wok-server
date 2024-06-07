@@ -40,7 +40,8 @@ describe('静态文件测试', () => {
   before(
     runTestAsync(async () => {
       // 禁用静态缓存
-      process.env.SERVER_CACHE_ENABLE = 'false'
+      process.env.SERVER_TLS_ENABLE = 'false'
+      process.env.SERVER_STATIC_CACHE_ENABLE = 'false'
       await startWebServer({
         static: {
           '/': { dir: 'test/mvc/static', cacheAge: 300 }

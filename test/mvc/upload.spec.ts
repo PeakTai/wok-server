@@ -5,6 +5,8 @@ import { runTestAsync } from '../utils'
 
 describe('mvc 上传文件处理测试', () => {
   before(async () => {
+    process.env.SERVER_TLS_ENABLE = 'false'
+    process.env.SERVER_STATIC_CACHE_ENABLE = 'false'
     await startWebServer({
       routers: {
         '/upload': async exchange => {

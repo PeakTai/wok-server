@@ -275,6 +275,40 @@ export const userCreateHandler = createJsonHandler<Form, Resp>({
 
 校验时会自动根据消息头 `accept-language` 切换校验器的语言，对于没有自定义错误信息的校验使用切换后的语言给予默认的提示。
 
+从 0.3.0 版本开始，createJsonHandler 支持了通过 cache 选项来设置使用缓存组件将响应结果进行缓存，
+在可以复用缓存的情况下，避免再次执行整个 handle 方法的流程，从而提升性能。
+
+```ts
+export const userGetHandler = createJsonHandler<Form, User>({
+  // 设置缓存，参数和 handle 方法一样的
+  // 只能缓存有效的响应信息，如果没有响应正文则不会进行缓存
+  async cache(body, exchange) {
+    // 使用参数 id 来构建缓存的 key
+    const key = `get-user-${body.id}`
+    // 返回缓存的 key 和有效时间，有效时间是可选的
+    return { key, expiresInSeconds: 60 }
+  },
+  async handle(body, exchange) {
+    // handle 流程省略 ...
+  }
+})
+```
+
+由于缓存是基于缓存组件，那么也可以通过缓存组件来清理缓存。
+
+```ts
+export const userUpdateHandler = createJsonHandler<Form>({
+  async handle(body, exchange) {
+    // handle 部分流程省略 ...
+    // 将用户详情接口的缓存清理掉
+    getCache().remove(`get-user-${body.id}`)
+  }
+})
+```
+
+但是不要使用缓存组件来获取缓存内容，因为为了提升性能，缓存的内容是 Bufer，
+当使用缓存时避免再次执行对象序列化，并不是 handle 方法返回的对象。
+
 ### 二进制（Binary）上传
 
 二制进上传也就是将文件以二进制的形式写入请求正文，请求正文仅存储文件内容没有别的信息，
@@ -533,6 +567,20 @@ dir 参数是映射文件目录的地址，可以是绝对路径，也可以是�
 
 静态文件同时也支持主页自动映射，比如访问 /a/b/c ，会匹配到 /a/b 的配置，然后在配置的文件目录下寻找文件 c ，
 如果找不到则尝试寻找目录 c 下的 index.html 文件。
+
+#### 静态文件服务器缓存
+
+从 0.3.0 版本开始，支持服务器端缓存静态文件。要启用静态文件缓存，需要配置以下的环境变量：
+
+| 环境变量                          | 说明                                                              |
+| :-------------------------------- | :---------------------------------------------------------------- |
+| SERVER_STATIC_CACHE_ENABLE        | 是否启用服务器缓存，默认 false                                    |
+| SERVER_STATIC_CACHE_MAX_AGE       | 服务器缓存时间，单位秒，默认 600                                  |
+| SERVER_STATIC_CACHE_MAX_FILE_SIZE | 最大可缓存的文件大小，支持语义化格式，如 10m 和 100k 等，默认 10m |
+| SERVER_STATIC_CACHE_MAX_SIZE      | 缓存最大空间，一旦超出将执行清理，同上支持语义化格式，默认 100,   |
+
+静态文件的服务器缓存不支持清除，只能等待过期，或者空间满被清理掉。所以，只适合缓存长期不需要改变的文件，
+目前还没有支持按规则来缓存，后续的版本有可能会考虑。
 
 ### 请求日志
 

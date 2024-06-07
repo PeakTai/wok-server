@@ -7,6 +7,8 @@ import { runTestAsync, sleep } from '../utils'
 describe('websocket.io 测试', async () => {
   before(
     runTestAsync(async () => {
+      process.env.SERVER_TLS_ENABLE = 'false'
+      process.env.SERVER_STATIC_CACHE_ENABLE = 'false'
       await startWebServer({
         async preHandler(server) {
           const io = new Server(server, {

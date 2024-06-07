@@ -23,7 +23,7 @@ async function get(path: string, headers?: OutgoingHttpHeaders): Promise<RespInf
         port: 8080,
         path,
         method: 'GET',
-        headers,
+        headers
       },
       res => {
         const bfs: any[] = []
@@ -41,11 +41,12 @@ async function get(path: string, headers?: OutgoingHttpHeaders): Promise<RespInf
 describe('静态文件缓存测试', () => {
   before(
     runTestAsync(async () => {
+      process.env.SERVER_TLS_ENABLE = 'false'
       // 通过环境变量启动静态缓存
-      process.env.SERVER_CACHE_ENABLE = 'true'
-      process.env.SERVER_CACHE_MAX_AGE = '5'
-      process.env.SERVER_CACHE_MAX_FILE_SIZE = '1m'
-      process.env.SERVER_CACHE_MAX_SIZE = '10m'
+      process.env.SERVER_STATIC_CACHE_ENABLE = 'true'
+      process.env.SERVER_STATIC_CACHE_MAX_AGE = '5'
+      process.env.SERVER_STATIC_CACHE_MAX_FILE_SIZE = '1m'
+      process.env.SERVER_STATIC_CACHE_MAX_SIZE = '10m'
       await startWebServer({
         static: {
           '/': { dir: 'test/mvc/static', cacheAge: 300 }

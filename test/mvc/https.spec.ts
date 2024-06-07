@@ -69,6 +69,7 @@ async function get(path: string, headers?: OutgoingHttpHeaders): Promise<RespInf
 describe('web安全层证书测试', () => {
   before(
     runTestAsync(async () => {
+      process.env.SERVER_TLS_ENABLE = 'true'
       process.env.SERVER_TLS_KEY = 'test/mvc/cert/test.key'
       process.env.SERVER_TLS_CERT = 'test/mvc/cert/test.pem'
       // 环境变量配置证书信息
