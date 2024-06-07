@@ -45,6 +45,13 @@ describe('mvc 常规测试', async () => {
           '/json/data/cache/get': getCacheJsonData,
           '/json/data/update': updateJsonData,
           '/html': htmlHandler,
+          '/timeout': async exchange => {
+            // 默认的超时时间是 5s ，这里等待 6秒来测试超时时间是否生效
+            await new Promise<void>((resolve, reject) => {
+              setTimeout(resolve, 7000)
+            })
+            exchange.respondText('不会被响应的信息')
+          },
           '*': async exchange => exchange.respondText('404', 404)
         },
         interceptors: [
@@ -207,6 +214,22 @@ describe('mvc 常规测试', async () => {
         '<html lang="zh"><head><title>主页-数码</title></head>' +
           '<body><div class="layout"><h1>各种商品，应有尽有</h1><div>数码区</div></div></body></html>'
       )
+    })
+  )
+  it(
+    '超时',
+    runTestAsync(async () => {
+      const res = await doRequest({
+        url: 'http://localhost:8080/timeout',
+        method: 'GET',
+        timeout: 30000
+      })
+      // 由于请求超时，最终状态码应该是 408
+      equal(res.status, 408)
+      // 响应正文应该是 {"message":"Request timeout"}
+      const json = JSON.parse(res.body.toString('utf-8'))
+      equal(json.message, 'Request timeout')
+
     })
   )
   it(

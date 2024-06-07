@@ -94,29 +94,23 @@ export class WokServer {
     }
     // 主服务
     if (!tls) {
-      this.server = createServer(
-        {
-          requestTimeout: this.config.timeout
-        },
-        (req, res) => {
-          res.setHeader('Server', 'Wok Server')
-          res.on('error', error => {
-            // 如果响应流发生错误，只能把信息记录下来
-            getLogger().error(`Response Error：${req.url}`, error)
-          })
-          this.handleRequest(req, res).catch(error => {
-            getLogger().error(`Handle request failed：${req.url}`, error)
-            if (!res.writableEnded) {
-              // 响应 500
-              renderError(res, error.message ? error.message : 'Internal Server Error', 500)
-            }
-          })
-        }
-      )
+      this.server = createServer((req, res) => {
+        res.setHeader('Server', 'Wok Server')
+        res.on('error', error => {
+          // 如果响应流发生错误，只能把信息记录下来
+          getLogger().error(`Response Error：${req.url}`, error)
+        })
+        this.handleRequest(req, res).catch(error => {
+          getLogger().error(`Handle request failed：${req.url}`, error)
+          if (!res.writableEnded) {
+            // 响应 500
+            renderError(res, error.message ? error.message : 'Internal Server Error', 500)
+          }
+        })
+      })
     } else {
       this.server = createHttpsServer(
         {
-          requestTimeout: this.config.timeout,
           key: tls.key,
           cert: tls.cert
         },
@@ -136,10 +130,10 @@ export class WokServer {
         }
       )
     }
-
+    this.server.setTimeout(this.config.timeout)
     this.server.on('timeout', (socket: Socket) => {
       socket.end(
-        'HTTP/1.1 408 Timeout\ncontent-type: application/json; charset=utf-8\n\n{"message":"Request timeout"}'
+        'HTTP/1.1 408 Timeout\r\ncontent-type: application/json; charset=utf-8\r\n\r\n{"message":"Request timeout"}'
       )
     })
   }
