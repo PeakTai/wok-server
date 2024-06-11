@@ -577,10 +577,15 @@ dir 参数是映射文件目录的地址，可以是绝对路径，也可以是�
 | SERVER_STATIC_CACHE_ENABLE        | 是否启用服务器缓存，默认 false                                    |
 | SERVER_STATIC_CACHE_MAX_AGE       | 服务器缓存时间，单位秒，默认 600                                  |
 | SERVER_STATIC_CACHE_MAX_FILE_SIZE | 最大可缓存的文件大小，支持语义化格式，如 10m 和 100k 等，默认 10m |
-| SERVER_STATIC_CACHE_MAX_SIZE      | 缓存最大空间，一旦超出将执行清理，同上支持语义化格式，默认 100,   |
+| SERVER_STATIC_CACHE_MAX_SIZE      | 缓存最大空间，一旦超出将执行清理，同上支持语义化格式，默认 100m   |
 
-静态文件的服务器缓存不支持清除，只能等待过期，或者空间满被清理掉。所以，只适合缓存长期不需要改变的文件，
-目前还没有支持按规则来缓存，后续的版本有可能会考虑。
+0.3.2 版本新增加了 removeServerStaticCache 函数，可以主动删除指定的服务器端静态缓存。
+
+```ts
+import {removeServerStaticCache} from 'wok-server'
+
+removeServerStaticCache('/assets/index.js')
+```
 
 ### 请求日志
 

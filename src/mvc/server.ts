@@ -287,6 +287,15 @@ export class WokServer {
     return res
   }
   /**
+   * 删除服务器端静态资源缓存
+   * @param path
+   */
+  removeServerStaticCache(path: string) {
+    if (this.staticHandler) {
+      this.staticHandler.removeServerCache(path)
+    }
+  }
+  /**
    * 停止
    */
   async stop() {

@@ -425,4 +425,14 @@ export class StaticHandler {
     }
     return { filePath, stats: fileStat, maxAge: matchedRule.cacheAge }
   }
+  /**
+   * 删除服务器端静态资源缓存
+   * @param path
+   */
+  removeServerCache(path: string) {
+    if (this.cache) {
+      this.cache.remove(path)
+      this.cache.remove(`gzip-${path}`)
+    }
+  }
 }

@@ -1,10 +1,10 @@
-import { gunzip } from 'zlib'
-import { IncomingHttpHeaders, OutgoingHttpHeaders, request } from 'http'
-import { startWebServer, stopWebServer } from '../../src'
-import { runTestAsync, sleep } from '../utils'
-import { resolve } from 'path'
+import { equal } from 'assert'
 import { writeFile } from 'fs/promises'
-import { equal, ok } from 'assert'
+import { IncomingHttpHeaders, OutgoingHttpHeaders, request } from 'http'
+import { resolve } from 'path'
+import { gunzip } from 'zlib'
+import { removeServerStaticCache, startWebServer, stopWebServer } from '../../src'
+import { runTestAsync, sleep } from '../utils'
 
 interface RespInfo {
   status: number
@@ -85,6 +85,32 @@ describe('静态文件缓存测试', () => {
       equal(text2, '静态文本测试')
       // 等待缓存失效
       await sleep(6000)
+      // 再获取就是新的内容
+      const res3 = await get('/test1.txt')
+      const text3 = res3.buffer.toString('utf-8')
+      equal(text3, '修改后的测试内容')
+    })
+  )
+  it(
+    '主动删除静态文件缓存',
+    runTestAsync(async () => {
+      // 将文件内容重置
+      const testFilePath = resolve(process.cwd(), 'test/mvc/static/test1.txt')
+      await writeFile(testFilePath, '静态文本测试')
+      removeServerStaticCache('/test1.txt')
+
+      const res = await get('/test1.txt')
+      const text = res.buffer.toString('utf-8')
+      equal(text, '静态文本测试')
+      // 再次请求应该会有缓存
+      // 对文件进行修改
+      await writeFile(testFilePath, '修改后的测试内容')
+      // 请求到的文件内容还是老样子
+      const res2 = await get('/test1.txt')
+      const text2 = res2.buffer.toString('utf-8')
+      equal(text2, '静态文本测试')
+      // 主动清理服务器缓存
+      removeServerStaticCache('/test1.txt')
       // 再获取就是新的内容
       const res3 = await get('/test1.txt')
       const text3 = res3.buffer.toString('utf-8')

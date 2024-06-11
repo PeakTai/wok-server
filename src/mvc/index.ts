@@ -6,6 +6,16 @@ import { WokServer, WokServerOpts } from './server'
 let SERVER: WokServer | undefined
 
 /**
+ * 删除服务器静态缓存
+ * @param path 路径，必须以斜杠开头，如：/assets/index.js
+ */
+export async function removeServerStaticCache(path: string) {
+  if (SERVER) {
+    SERVER.removeServerStaticCache(path)
+  }
+}
+
+/**
  * 启动 web服务
  * @param opts
  */
@@ -35,4 +45,3 @@ export * from './handler'
 export * from './interceptor'
 export * from './render'
 export * from './router'
-
