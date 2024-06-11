@@ -1,3 +1,15 @@
+# 0.3.2
+
+## Features
+
+- 支持主动删除服务器端静态资源缓存
+
+# 0.3.1
+
+## Bug Fixes
+
+修复 mvc 不能正确处理超时时间问题
+
 # 0.3
 
 ## Performance Improvements
