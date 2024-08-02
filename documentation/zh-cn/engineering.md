@@ -17,7 +17,7 @@
   ├──db-migration 数据库迁移文件，使用 mysql 时才有
   ├──src 源码目录
   │   ├──auth 授权
-  │   │   ├──auth.ts 授权信实体配置
+  │   │   ├──auth.ts 授权实体配置
   │   │   ├──auth-interceptor.ts 授权拦截器
   │   │   ├──create-auth.ts 创建授权接口（/auth/create）
   │   │   ├──ccu-task.ts 在线人数统计任务

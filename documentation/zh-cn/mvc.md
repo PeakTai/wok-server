@@ -306,7 +306,7 @@ export const userUpdateHandler = createJsonHandler<Form>({
 })
 ```
 
-但是不要使用缓存组件来获取缓存内容，因为为了提升性能，缓存的内容是 Bufer，
+但是不要使用缓存组件来获取缓存内容，因为为了提升性能，缓存的内容是 Buffer，
 当使用缓存时避免再次执行对象序列化，并不是 handle 方法返回的对象。
 
 ### 二进制（Binary）上传
