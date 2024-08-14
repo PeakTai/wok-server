@@ -59,7 +59,7 @@ export function getConfig() {
     'SERVER',
     {
       port: [notNull(), min(80), max(65535)],
-      timeout: [notNull(), min(1000), max(60000)],
+      timeout: [notNull(), min(1000), max(600000)],
       accessLog: [notNull()],
       corsAllowOrigin: [notBlank()],
       corsAllowHeaders: [notBlank()],
