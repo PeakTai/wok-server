@@ -4,10 +4,10 @@ import { MixCriteria, MysqlException, enableMysql, getMysqlManager } from '../..
 import { buildQuery } from '../../src/mysql/manager/ops'
 import { promiseGetConnection } from '../../src/mysql/manager/utils'
 import { assertAsyncThrows, runTestAsync, sleep } from '../utils'
-import { tableBook } from './book'
+import { Book, tableBook } from './book'
 import { tableDbVersion } from './db-version'
-import { User, tableUser } from './user'
 import { tableQuestion } from './question'
+import { User, tableUser } from './user'
 
 describe('mysql 组件测试', () => {
   before(
@@ -159,7 +159,12 @@ describe('mysql 组件测试', () => {
     runTestAsync(async () => {
       const manager = getMysqlManager()
       // 插入测试数据
-      await manager.insert(tableUser, { id: 'd0001', nickname: '测试删除', balance: 0 })
+      await manager.insert(tableUser, {
+        id: 'd0001',
+        nickname: '测试删除',
+        balance: 0,
+        active: true
+      })
       // 验证插入成功
       ok(await manager.existsById(tableUser, 'd0001'))
 
@@ -173,8 +178,18 @@ describe('mysql 组件测试', () => {
     runTestAsync(async () => {
       const manager = getMysqlManager()
       // 插入几条测试数据
-      await manager.insert(tableUser, { id: 'do001', nickname: 'DO001', balance: 333 })
-      await manager.insert(tableUser, { id: 'do002', nickname: 'DO002', balance: 444 })
+      await manager.insert(tableUser, {
+        id: 'do001',
+        nickname: 'DO001',
+        balance: 333,
+        active: true
+      })
+      await manager.insert(tableUser, {
+        id: 'do002',
+        nickname: 'DO002',
+        balance: 444,
+        active: true
+      })
       ok(await manager.existsById(tableUser, 'do001'))
       ok(await manager.existsById(tableUser, 'do002'))
 
@@ -196,11 +211,11 @@ describe('mysql 组件测试', () => {
     runTestAsync(async () => {
       const manager = getMysqlManager()
       // 插入几条测试数据
-      await manager.insert(tableUser, { id: 'd0002', nickname: 'DD02', balance: 4 })
-      await manager.insert(tableUser, { id: 'd0003', nickname: 'DD03', balance: 5 })
-      await manager.insert(tableUser, { id: 'd0004', nickname: 'DD04', balance: 6 })
-      await manager.insert(tableUser, { id: 'd0005', nickname: 'DD05', balance: 7 })
-      await manager.insert(tableUser, { id: 'd0006', nickname: 'DD06', balance: 9 })
+      await manager.insert(tableUser, { id: 'd0002', nickname: 'DD02', balance: 4, active: true })
+      await manager.insert(tableUser, { id: 'd0003', nickname: 'DD03', balance: 5, active: true })
+      await manager.insert(tableUser, { id: 'd0004', nickname: 'DD04', balance: 6, active: true })
+      await manager.insert(tableUser, { id: 'd0005', nickname: 'DD05', balance: 7, active: true })
+      await manager.insert(tableUser, { id: 'd0006', nickname: 'DD06', balance: 9, active: true })
       // 删除余额在 5 到 7 之间的
       await manager.deleteMany({
         table: tableUser,
@@ -248,9 +263,14 @@ describe('mysql 组件测试', () => {
     runTestAsync(async () => {
       const manager = getMysqlManager()
       // 预置几个用于查询的数据
-      await manager.insert(tableUser, { id: 'ff001', nickname: 'ff001', balance: 78 })
-      await manager.insert(tableUser, { id: 'ff002', nickname: 'ff002', balance: 76 })
-      await manager.insert(tableUser, { id: 'ff003', nickname: 'ff003', balance: 77 })
+      await manager.insert(tableUser, { id: 'ff001', nickname: 'ff001', balance: 78, active: true })
+      await manager.insert(tableUser, { id: 'ff002', nickname: 'ff002', balance: 76, active: true })
+      await manager.insert(tableUser, {
+        id: 'ff003',
+        nickname: 'ff003',
+        balance: 77,
+        active: false
+      })
       const user = await manager.findFirst(tableUser, c =>
         c.like('nickname', 'ff0%').gt('balance', 75).lt('balance', 77)
       )
@@ -258,21 +278,24 @@ describe('mysql 组件测试', () => {
       equal(user.id, 'ff002')
       equal(user.nickname, 'ff002')
       equal(user.balance, 76)
+      ok(user.active)
 
       const user2 = await manager.findFirst(tableUser, { nickname: 'ff003' })
       ok(user2)
       equal(user2.id, 'ff003')
       equal(user2.balance, 77)
+      ok(!user2.active)
     })
   )
   it(
     'insert 测试',
     runTestAsync(async () => {
       const manager = getMysqlManager()
-      let userInserted = await manager.insert(tableUser, {
+      let userInserted = await manager.insert<User>(tableUser, {
         id: 'in001',
         nickname: '小明',
-        balance: 1
+        balance: 1,
+        active: true
       })
       ok(userInserted.create_at)
       ok(userInserted.update_at)
@@ -296,7 +319,7 @@ describe('mysql 组件测试', () => {
       equal(update_at.getTime(), user.update_at.getTime())
 
       // book 自动生成 id
-      let bookInserted = await manager.insert(tableBook, { name: '秘籍' })
+      let bookInserted = await manager.insert<Book>(tableBook, { name: '秘籍' })
       ok(bookInserted.create_at)
       ok(bookInserted.update_at)
       ok(typeof bookInserted.create_at === 'number')
@@ -320,9 +343,9 @@ describe('mysql 组件测试', () => {
     runTestAsync(async () => {
       const manager = getMysqlManager()
       await manager.insertMany(tableUser, [
-        { id: 'im001', nickname: '张飞', balance: 0 },
-        { id: 'im002', nickname: '关羽', balance: 2 },
-        { id: 'im003', nickname: '刘备', balance: 5 }
+        { id: 'im001', nickname: '张飞', balance: 0, active: true },
+        { id: 'im002', nickname: '关羽', balance: 2, active: true },
+        { id: 'im003', nickname: '刘备', balance: 5, active: true }
       ])
 
       const u1 = await manager.findById(tableUser, 'im002')
@@ -373,7 +396,7 @@ describe('mysql 组件测试', () => {
     'update 测试',
     runTestAsync(async () => {
       const manager = getMysqlManager()
-      await manager.insert(tableUser, { id: 'up001', nickname: '张三', balance: 566 })
+      await manager.insert(tableUser, { id: 'up001', nickname: '张三', balance: 566, active: true })
       let user = await manager.findById(tableUser, 'up001')
       ok(user)
       equal(user.nickname, '张三')
@@ -404,7 +427,12 @@ describe('mysql 组件测试', () => {
 
       // 更新不存在的记录会报错
       try {
-        await manager.update(tableUser, { id: 'xxxxxxx', nickname: '王五', balance: 44 })
+        await manager.update(tableUser, {
+          id: 'xxxxxxx',
+          nickname: '王五',
+          balance: 44,
+          active: true
+        })
         fail('更新不存在的记录没有报错')
       } catch (e) {
         ok(e instanceof MysqlException)
@@ -417,10 +445,10 @@ describe('mysql 组件测试', () => {
     runTestAsync(async () => {
       const manager = getMysqlManager()
       await Promise.all([
-        manager.insert(tableUser, { id: 'um001', nickname: 'um001', balance: 23 }),
-        manager.insert(tableUser, { id: 'um002', nickname: 'um002', balance: 24 }),
-        manager.insert(tableUser, { id: 'um003', nickname: 'um003', balance: 34 }),
-        manager.insert(tableUser, { id: 'um004', nickname: 'um004', balance: 18 })
+        manager.insert(tableUser, { id: 'um001', nickname: 'um001', balance: 23, active: true }),
+        manager.insert(tableUser, { id: 'um002', nickname: 'um002', balance: 24, active: true }),
+        manager.insert(tableUser, { id: 'um003', nickname: 'um003', balance: 34, active: true }),
+        manager.insert(tableUser, { id: 'um004', nickname: 'um004', balance: 18, active: true })
       ])
 
       let u1 = await manager.findById(tableUser, 'um001')
@@ -503,7 +531,7 @@ describe('mysql 组件测试', () => {
     'partialUpdate 测试',
     runTestAsync(async () => {
       const manager = getMysqlManager()
-      await manager.insert(tableUser, { id: 'pu000', nickname: '管佑', balance: 33 })
+      await manager.insert(tableUser, { id: 'pu000', nickname: '管佑', balance: 33, active: true })
       let user = await manager.findById(tableUser, 'pu000')
       ok(user)
       ok(user.create_at)
@@ -511,7 +539,11 @@ describe('mysql 组件测试', () => {
       const { create_at, update_at } = user
 
       await sleep(100)
-      let res = await manager.partialUpdate(tableUser, { id: 'pu000', nickname: '石秦' })
+      let res = await manager.partialUpdate(tableUser, {
+        id: 'pu000',
+        nickname: '石秦',
+        active: false
+      })
       ok(res)
       user = await manager.findById(tableUser, 'pu000')
       ok(user)
@@ -519,6 +551,7 @@ describe('mysql 组件测试', () => {
       equal(user.balance, 33)
       ok(user.create_at)
       ok(user.update_at)
+      ok(!user.active)
       equal(user.create_at.getTime(), create_at.getTime())
       ok(user.update_at > update_at)
       const updateAt2 = user.update_at
@@ -543,8 +576,8 @@ describe('mysql 组件测试', () => {
     'updateOne 测试',
     runTestAsync(async () => {
       const manager = getMysqlManager()
-      await manager.insert(tableUser, { id: 'uo000', nickname: '占元', balance: 22 })
-      await manager.insert(tableUser, { id: 'uo001', nickname: '占元', balance: 33 })
+      await manager.insert(tableUser, { id: 'uo000', nickname: '占元', balance: 22, active: true })
+      await manager.insert(tableUser, { id: 'uo001', nickname: '占元', balance: 33, active: true })
       const res = await manager.updateOne(tableUser, { nickname: '占元' }, { nickname: '至长' })
       ok(res)
       const u1 = await manager.findById(tableUser, 'uo000')
@@ -573,10 +606,10 @@ describe('mysql 组件测试', () => {
     runTestAsync(async () => {
       const manager = getMysqlManager()
       Promise.all([
-        manager.insert(tableUser, { id: 'find1', nickname: 'f1', balance: 788 }),
-        manager.insert(tableUser, { id: 'find2', nickname: 'f2', balance: 790 }),
-        manager.insert(tableUser, { id: 'find3', nickname: 'f3', balance: 777 }),
-        manager.insert(tableUser, { id: 'find4', nickname: 'f4', balance: 793 })
+        manager.insert(tableUser, { id: 'find1', nickname: 'f1', balance: 788, active: true }),
+        manager.insert(tableUser, { id: 'find2', nickname: 'f2', balance: 790, active: true }),
+        manager.insert(tableUser, { id: 'find3', nickname: 'f3', balance: 777, active: true }),
+        manager.insert(tableUser, { id: 'find4', nickname: 'f4', balance: 793, active: true })
       ])
 
       // balance 顺序： 777 788 790 793 ，offset 1 跳过第一个
@@ -631,10 +664,10 @@ describe('mysql 组件测试', () => {
     runTestAsync(async () => {
       const manager = getMysqlManager()
       await Promise.all([
-        manager.insert(tableUser, { id: 'c001', nickname: '李志', balance: 233 }),
-        manager.insert(tableUser, { id: 'c002', nickname: '李响', balance: 234 }),
-        manager.insert(tableUser, { id: 'c003', nickname: '李幸', balance: 235 }),
-        manager.insert(tableUser, { id: 'c004', nickname: '李辽', balance: 236 })
+        manager.insert(tableUser, { id: 'c001', nickname: '李志', balance: 233, active: true }),
+        manager.insert(tableUser, { id: 'c002', nickname: '李响', balance: 234, active: true }),
+        manager.insert(tableUser, { id: 'c003', nickname: '李幸', balance: 235, active: true }),
+        manager.insert(tableUser, { id: 'c004', nickname: '李辽', balance: 236, active: true })
       ])
 
       const count = await manager.count(tableUser, c =>
@@ -648,20 +681,20 @@ describe('mysql 组件测试', () => {
     runTestAsync(async () => {
       const manager = getMysqlManager()
       await Promise.all([
-        manager.insert(tableUser, { id: 'pg001', nickname: '张伟', balance: 122 }),
-        manager.insert(tableUser, { id: 'pg002', nickname: '王伟', balance: 111 }),
-        manager.insert(tableUser, { id: 'pg003', nickname: '张静', balance: 105 }),
-        manager.insert(tableUser, { id: 'pg004', nickname: '刘洋', balance: 132 }),
-        manager.insert(tableUser, { id: 'pg005', nickname: '王勇', balance: 104 }),
-        manager.insert(tableUser, { id: 'pg006', nickname: '张杰', balance: 102 }),
-        manager.insert(tableUser, { id: 'pg007', nickname: '张涛', balance: 119 }),
-        manager.insert(tableUser, { id: 'pg008', nickname: '刘杰', balance: 188 }),
-        manager.insert(tableUser, { id: 'pg009', nickname: '王秀兰', balance: 105 }),
-        manager.insert(tableUser, { id: 'pg010', nickname: '张强', balance: 105 }),
-        manager.insert(tableUser, { id: 'pg011', nickname: '王桂英', balance: 89 }),
-        manager.insert(tableUser, { id: 'pg012', nickname: '李燕', balance: 134 }),
-        manager.insert(tableUser, { id: 'pg013', nickname: '王鑫', balance: 113 }),
-        manager.insert(tableUser, { id: 'pg014', nickname: '王刚', balance: 101 })
+        manager.insert(tableUser, { id: 'pg001', nickname: '张伟', balance: 122, active: true }),
+        manager.insert(tableUser, { id: 'pg002', nickname: '王伟', balance: 111, active: true }),
+        manager.insert(tableUser, { id: 'pg003', nickname: '张静', balance: 105, active: true }),
+        manager.insert(tableUser, { id: 'pg004', nickname: '刘洋', balance: 132, active: true }),
+        manager.insert(tableUser, { id: 'pg005', nickname: '王勇', balance: 104, active: true }),
+        manager.insert(tableUser, { id: 'pg006', nickname: '张杰', balance: 102, active: true }),
+        manager.insert(tableUser, { id: 'pg007', nickname: '张涛', balance: 119, active: true }),
+        manager.insert(tableUser, { id: 'pg008', nickname: '刘杰', balance: 188, active: true }),
+        manager.insert(tableUser, { id: 'pg009', nickname: '王秀兰', balance: 105, active: true }),
+        manager.insert(tableUser, { id: 'pg010', nickname: '张强', balance: 105, active: true }),
+        manager.insert(tableUser, { id: 'pg011', nickname: '王桂英', balance: 89, active: true }),
+        manager.insert(tableUser, { id: 'pg012', nickname: '李燕', balance: 134, active: true }),
+        manager.insert(tableUser, { id: 'pg013', nickname: '王鑫', balance: 113, active: true }),
+        manager.insert(tableUser, { id: 'pg014', nickname: '王刚', balance: 101, active: true })
       ])
 
       const page = await manager.paginate({
@@ -699,7 +732,12 @@ describe('mysql 组件测试', () => {
     runTestAsync(async () => {
       const manager = getMysqlManager()
       await Promise.all([
-        manager.insert(tableUser, { id: 'qu001', nickname: '空头文学家', balance: 0 }),
+        manager.insert(tableUser, {
+          id: 'qu001',
+          nickname: '空头文学家',
+          balance: 0,
+          active: true
+        }),
         manager.insert(tableBook, { name: '求解之谜', author_id: 'qu001' })
       ])
       // 自定义查询
@@ -725,8 +763,8 @@ describe('mysql 组件测试', () => {
     runTestAsync(async () => {
       const manager = getMysqlManager()
       await Promise.all([
-        manager.insert(tableUser, { id: 'mo001', nickname: '佚名', balance: 0 }),
-        manager.insert(tableUser, { id: 'mo002', nickname: '佚名', balance: 1 })
+        manager.insert(tableUser, { id: 'mo001', nickname: '佚名', balance: 0, active: true }),
+        manager.insert(tableUser, { id: 'mo002', nickname: '佚名', balance: 1, active: true })
       ])
       const res = await manager.modify(`update user set nickname='无名' where nickname='佚名'`)
       equal(res, 2)
@@ -750,14 +788,28 @@ describe('mysql 组件测试', () => {
         equal(e.message, 'Cannot execute statement in a READ ONLY transaction.')
       }
 
-      await manager.insert(tableUser, { id: 'tx001', nickname: '禹', balance: 33 })
+      await manager.insert(tableUser, { id: 'tx001', nickname: '禹', balance: 33, active: true })
       try {
         await manager.tx(
           async session => {
-            await session.insert(tableUser, { id: 'tx002', nickname: '契', balance: 20 })
-            await session.partialUpdate(tableUser, { id: 'tx001', balance: ['inc', 10] })
+            await session.insert(tableUser, {
+              id: 'tx002',
+              nickname: '契',
+              balance: 20,
+              active: true
+            })
+            await session.partialUpdate(tableUser, {
+              id: 'tx001',
+              balance: ['inc', 10],
+              active: true
+            })
             // id 重复导致插入失败
-            await session.insert(tableUser, { id: 'tx002', nickname: '汤', balance: 20 })
+            await session.insert(tableUser, {
+              id: 'tx002',
+              nickname: '汤',
+              balance: 20,
+              active: true
+            })
           },
           { isolationLevel: 'READ COMMITTED' }
         )
@@ -775,7 +827,12 @@ describe('mysql 组件测试', () => {
       // 成功操作测试
       const txRes = await manager.tx(
         async session => {
-          await session.insert(tableUser, { id: 'tx003', nickname: '孔丘', balance: 0 })
+          await session.insert(tableUser, {
+            id: 'tx003',
+            nickname: '孔丘',
+            balance: 0,
+            active: true
+          })
           await session.insert(tableBook, { name: '春秋', author_id: 'tx003' })
           return 7788
         },

@@ -4,6 +4,7 @@ export interface User {
   id: string
   nickname: string
   balance: number
+  active: boolean
   create_at?: Date
   update_at?: Date
 }
@@ -11,7 +12,7 @@ export interface User {
 export const tableUser: Table<User> = {
   tableName: 'user',
   id: 'id',
-  columns: ['nickname', 'balance'],
+  columns: ['nickname', 'balance', 'active'],
   createdDate: {
     column: 'create_at',
     type: 'date'
