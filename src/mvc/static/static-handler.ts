@@ -235,7 +235,11 @@ export class StaticHandler {
         // buffer 是缓存的文件，gzip 编码缓存的文件即是已经压缩后的文件
         await this.endRespWithBuffer(response, file.bufferOrPath)
       } else {
-        createReadStream(file.bufferOrPath).pipe(createGzip()).pipe(response)
+        const path = file.bufferOrPath
+        await new Promise<void>((resolve, reject) => {
+          response.once('finish', resolve).once('error', reject)
+          createReadStream(path).pipe(createGzip()).pipe(response)
+        })
       }
       return true
     }
@@ -282,6 +286,9 @@ export class StaticHandler {
   }
 
   async endRespWithBuffer(response: ServerResponse, buffer: Buffer) {
+    if (response.writableEnded || response.destroyed) {
+      return
+    }
     await new Promise<void>((resolve, reject) => {
       response.write(buffer, err => {
         if (err) {
