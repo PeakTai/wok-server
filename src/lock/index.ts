@@ -116,7 +116,7 @@ class ServerLockManager {
      */
     expiresAt: number
   }): Promise<boolean> {
-    let milliseconds = 0
+    let start = Date.now()
     while (true) {
       const info = this.lockMap.get(opts.key)
       // 锁不存在或已经过期
@@ -131,21 +131,20 @@ class ServerLockManager {
       if (info.value === opts.value) {
         return true
       }
-      if (milliseconds >= opts.waitSeconds * 1000) {
+      if (Date.now() - start > opts.waitSeconds * 1000) {
         break
       }
-      milliseconds = milliseconds + 100
       await this.sleep()
     }
     return false
   }
   /**
-   * 沉睡100ms
+   * 沉睡
    * @returns
    */
   private sleep() {
     return new Promise<void>((resolve, reject) => {
-      setTimeout(resolve, 100)
+      setTimeout(resolve, 0)
     })
   }
 }
