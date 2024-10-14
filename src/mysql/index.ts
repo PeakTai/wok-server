@@ -40,7 +40,8 @@ export async function enableMysql(name?: string) {
         charset: mysqlConfig.charset,
         database: mysqlConfig.database,
         connectTimeout: mysqlConfig.connectTimeout,
-        multipleStatements: true
+        multipleStatements: true,
+        timezone: mysqlConfig.timezone
       })
       conn.connect(err => (err ? reject(err) : resolve(conn)))
     })
@@ -63,7 +64,8 @@ export async function enableMysql(name?: string) {
     debug: mysqlConfig.debug,
     connectionLimit: mysqlConfig.connectionLimit,
     maxIdle: mysqlConfig.maxIdle,
-    idleTimeout: mysqlConfig.idleTimeout
+    idleTimeout: mysqlConfig.idleTimeout,
+    timezone: mysqlConfig.timezone
   })
   process.addListener('beforeExit', () => pool.end())
   managerMap.set(finalName, new MysqlManager(mysqlConfig, pool))

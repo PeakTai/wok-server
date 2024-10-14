@@ -9,10 +9,11 @@ import { Interceptor } from './interceptor'
  */
 export const accessLogInterceptor: Interceptor = async (exchange, next) => {
   const start = new Date().getTime()
-  const userAgent = exchange.request.headers['user-agent']
-  const ip = exchange.request.socket.remoteAddress
-  const { url, method } = exchange.request
   exchange.response.once('close', () => {
+    const userAgent = exchange.request.headers['user-agent']
+    const referer = exchange.request.headers['referer']
+    const ip = exchange.request.socket.remoteAddress
+    const { url, method } = exchange.request
     const status = exchange.response.statusCode
     const rt = new Date().getTime() - start
     getLogger().info(
@@ -21,6 +22,7 @@ export const accessLogInterceptor: Interceptor = async (exchange, next) => {
         url,
         ip,
         userAgent,
+        referer,
         start: formatDateTime(new Date(start)),
         rt,
         status
