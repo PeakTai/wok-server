@@ -271,8 +271,10 @@ describe('mysql 组件测试', () => {
         balance: 77,
         active: false
       })
-      const user = await manager.findFirst(tableUser, c =>
-        c.like('nickname', 'ff0%').gt('balance', 75).lt('balance', 77)
+      const user = await manager.findFirst(
+        tableUser,
+        c => c.like('nickname', 'ff0%').gt('balance', 75).lte('balance', 78),
+        [['balance', 'asc']]
       )
       ok(user)
       equal(user.id, 'ff002')

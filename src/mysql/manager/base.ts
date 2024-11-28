@@ -152,13 +152,21 @@ export abstract class BaseMysqlManager {
   }
   /**
    * 按条件查询第一条记录.
-   * @param table
-   * @param criteria
+   * @param table 表信息
+   * @param criteria 查询条件
+   * @param orderBy 排序规则，按先后顺序放入，每个规则是一个元组，第一个元素是字段名称，第二个元素是顺序
    * @returns
    */
-  findFirst<T>(table: Table<T>, criteria?: MixCriteria<T>): Promise<T | null> {
-    return this.queryWithConnection(conn => findFirst(this.opts.config, conn, table, criteria))
+  findFirst<T>(
+    table: Table<T>,
+    criteria?: MixCriteria<T>,
+    orderBy?: Array<[keyof T, 'asc' | 'desc']>
+  ): Promise<T | null> {
+    return this.queryWithConnection(conn =>
+      findFirst(this.opts.config, conn, table, criteria, orderBy)
+    )
   }
+
   /**
    * 插入数据. 不支持自增加长id,id必须提前生成，请使用 uuid.
    * @param table 表信息

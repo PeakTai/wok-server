@@ -142,19 +142,37 @@ export async function findFirst<T>(
   config: MysqlConfig,
   conn: PoolConnection,
   table: Table<T>,
-  criteria?: MixCriteria<T>
+  criteria?: MixCriteria<T>,
+  /**
+   * 排序规则，按先后顺序放入，每个规则是一个元组，第一个元素是字段名称，第二个元素是顺序
+   */
+  orderBy?: Array<[keyof T, 'asc' | 'desc']>
 ): Promise<T | null> {
   let query = criteria ? buildQuery(criteria) : undefined
   let sql = `select * from ?? `
+  const values: any[] = [table.tableName]
   if (query) {
     sql += ` where ${query.sql} `
+    values.push(...query.values)
+  }
+   // 排序
+   if (orderBy && orderBy.length) {
+    orderBy.forEach((orderBy, idx) => {
+      const [field, sort] = orderBy
+      if (idx == 0) {
+        sql += ` order by ?? ${sort} `
+      } else {
+        sql += ` , ?? ${sort} `
+      }
+      values.push(field)
+    })
   }
   sql += ' limit 1'
   const res = await promiseQuery(
     config,
     conn,
     sql,
-    [table.tableName].concat(query ? query.values : [])
+    values
   )
   const list = res as RowDataPacket[] as T[]
   return list.length ? list[0] : null
