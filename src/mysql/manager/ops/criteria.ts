@@ -270,10 +270,11 @@ export class MysqlCriteria<T> {
       if (
         typeof criterion.value !== 'number' &&
         typeof criterion.value !== 'string' &&
+        typeof criterion.value !== 'boolean' &&
         !(criterion.value instanceof Date)
       ) {
         throw new MysqlException(
-          'The value of the query criteria is invalid，only number,string and Date are supported，' +
+          'The value of the query criteria is invalid，only number,string,boolean and Date are supported，' +
             `column name : ${criterion.key.toString()}，value : ${criterion.value} .`
         )
       }

@@ -617,7 +617,7 @@ describe('mysql 组件测试', () => {
       // balance 顺序： 777 788 790 793 ，offset 1 跳过第一个
       let list = await manager.find({
         table: tableUser,
-        criteria: c => c.between('balance', 700, 800).like('id', 'find%'),
+        criteria: c => c.eq('active', true).between('balance', 700, 800).like('id', 'find%'),
         offset: 1,
         limit: 10,
         orderBy: [['balance', 'asc']]
