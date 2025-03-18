@@ -629,3 +629,39 @@ await startWebServer({
   }
 })
 ```
+
+### Server-Sent Events
+
+组件本身没有直接提供对 SSE（Server-Sent Events） 的支持，可以在路由的处理函数中适当的进行处理来实现。
+
+```ts
+// 启动服务
+await startWebServer({
+  // 路由配置
+  routers: {
+    '/sse': async exchange => {
+      const { response } = exchange
+      // 设置消息头
+      response.setHeader('Content-Type', 'text/event-stream')
+      response.setHeader('Cache-Control', 'no-cache')
+      response.setHeader('Connection', 'keep-alive')
+      // 模拟异步操作更新多条消息
+      let counter = 0
+      for (let i = 0; i < 10; i++) {
+        // 沉睡一秒，模拟异步业务处理
+        await new Promise<void>((resolve, reject) => {
+          setTimeout(resolve, 1000)
+        })
+        counter++
+        // 写数据到响应信息中，前端在 EventSource 的 message 事件中处理
+        response.write(`data: ${JSON.stringify({ message: '实时更新', count: counter })}\n\n`)
+        if (counter >= 10) {
+          break
+        }
+      }
+      // 最后结束响应
+      response.end()
+    }
+  }
+})
+```
