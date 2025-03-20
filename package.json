@@ -1,6 +1,6 @@
 {
   "name": "wok-server",
-  "version": "0.4.7",
+  "version": "0.4.8",
   "packageManager": "pnpm@8.9.0",
   "description": "一个基于 NodeJs 和 TypeScript 的后端框架，轻量级、克制、简洁。A lightweight, restrained, and concise backend framework based on Node.js and TypeScript.",
   "scripts": {

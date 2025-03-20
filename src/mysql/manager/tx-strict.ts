@@ -18,14 +18,14 @@ import {
  */
 export class MysqlStrictTxSession extends MysqlTxSession {
   #opsCount = 0
-  constructor(config: MysqlConfig, conn: PoolConnection) {
+  constructor(private config: MysqlConfig, conn: PoolConnection) {
     super(config, conn)
   }
   /**
    * 为操作计数，检查是否操作次数过多.
    */
   #checkAndAddOpsCount() {
-    if (this.#opsCount >= 10) {
+    if (this.#opsCount >= this.config.maxOpsInStrictTx) {
       throw new MysqlException('Too many operations in a strict transaction.')
     }
     this.#opsCount++

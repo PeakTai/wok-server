@@ -39,6 +39,7 @@ process.env.MYSQL_CONNECTION_LIMIT = '1'
 process.env.MYSQL_MAX_IDLE = '1'
 process.env.MYSQL_IDLE_TIMEOUT = '60000'
 process.env.MYSQL_SLOW_SQL_WARN = 'true'
+process.env.MYSQL_MAX_OPS_IN_STRICT_TX = '10'
 // 将慢日志时间设置到很短，用于验证功能和测试时观察 sql
 process.env.MYSQL_SLOW_SQL_MS = '1'
 process.env.MYSQL_TRANSACTION_TIMEOUT = '2000'

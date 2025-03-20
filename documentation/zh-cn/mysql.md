@@ -29,6 +29,7 @@ mysql 组件基于 [mysql2](https://www.npmjs.com/package/mysql2) 封装，提�
 | MYSQL_SLOW_SQL_MS             | 慢 sql 毫秒数，默认 200                               |
 | MYSQL_TRANSACTION_TIMEOUT     | 事务超时时间，单位毫秒，默认 5000                     |
 | MYSQL_TRANSACTION_STRICT      | 事务严格模式，默认 true，设置为 false 可关闭严格模式  |
+| MYSQL_MAX_OPS_IN_STRICT_TX    | 严格事务中可以执行的操作次数，默认 10  |
 
 ## 初始化
 
@@ -560,6 +561,6 @@ mysqlManager.tx(
 4. 批量查询和计数 find、count、paginate
 5. findByIdIn 参数超过 100 个
 6. 使用 query 和 modify 执行自定义 sql
-7. 调用 session 进行的任何操作累计超过 10 次
+7. 调用 session 进行的任何操作累计超过 10 次，通过 MYSQL_MAX_OPS_IN_STRICT_TX 变量可以修改允许的次数
 
 长事务有很大的风险，在生产环境下推荐使用严格事务，并且将事务的超时时间设置的尽可能短一些。

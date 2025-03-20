@@ -76,6 +76,10 @@ export interface MysqlConfig {
    * 事务严格模式
    */
   transactionStrict: boolean
+  /**
+   * 在严格事务中可进行的最大操作次数
+   */
+  maxOpsInStrictTx: number
 }
 /**
  * 默认配置.
@@ -98,7 +102,8 @@ export const defaultConfig: MysqlConfig = {
   slowSqlWarn: true,
   slowSqlMs: 200,
   transactionTimeout: 5000,
-  transactionStrict: true
+  transactionStrict: true,
+  maxOpsInStrictTx: 10
 }
 /**
  * 配置校验规则.
@@ -120,5 +125,6 @@ export const configValidation: ValidationOpts<MysqlConfig> = {
   slowSqlWarn: [notNull()],
   slowSqlMs: [notNull(), min(1), max(3600000)],
   transactionTimeout: [notNull(), min(0), max(60000)],
-  transactionStrict: [notNull()]
+  transactionStrict: [notNull()],
+  maxOpsInStrictTx: [notNull(), min(1)]
 }
