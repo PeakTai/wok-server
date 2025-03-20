@@ -65,12 +65,17 @@ export function doRequest(opts: HttpRequestOpts): Promise<HttpResponseInfo> {
     if (opts.query) {
       Object.entries(opts.query).forEach(entry => {
         const [key, val] = entry
-        if (typeof val === 'string') {
+        // 忽略空值
+        if (val === undefined || val === null) {
+          return
+        } else if (typeof val === 'string') {
           url.searchParams.append(key, val)
         } else if (Array.isArray(val)) {
           val.forEach(v => url.searchParams.append(key, v))
         } else {
-          throw new Error(`The value is neither of string nor string[] type：${val}`)
+          throw new Error(
+            `The request parameter value is neither of string nor string[] type：${val} ,name: ${key}`
+          )
         }
       })
     }
