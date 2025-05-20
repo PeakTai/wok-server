@@ -1,3 +1,5 @@
+import { getLockManager } from '../lock'
+import { getLogger } from '../log'
 import { max, min, notNull, validate } from '../validation'
 import { Task, TaskController, execTask } from './task'
 
@@ -33,6 +35,9 @@ function exec(delay: number, task: Task, controller: TaskController) {
       await execTask(task)
       // 下次执行
       setTimeout(() => exec(delay, task, controller), delay * 1000)
+    })
+    .catch(e => {
+      getLogger().error(`EXEC TASK ERROR: ${task.name}`, e)
     })
     .catch(console.error)
 }

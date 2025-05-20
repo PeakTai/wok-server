@@ -1,3 +1,4 @@
+import { getLogger } from '../log'
 import { max, min, notNull, validate } from '../validation'
 import { Task, TaskController, execTask } from './task'
 
@@ -38,6 +39,9 @@ function exec(fixedDelay: number, task: Task, controller: TaskController) {
         delay = 0
       }
       setTimeout(() => exec(fixedDelay, task, controller), delay)
+    })
+    .catch(e => {
+      getLogger().error(`EXEC TASK ERROR: ${task.name}`, e)
     })
     .catch(console.error)
 }
