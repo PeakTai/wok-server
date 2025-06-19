@@ -33,13 +33,29 @@ export class TaskController {
 /**
  * 任务执行，封装任务执行过程中的一些通用信息输出和异常控制.
  * @param task
+ * @param timeout 任务超时时间，单位毫秒
  * @returns
  */
-export async function execTask(task: Task): Promise<{ start: number; cost: number; end: number }> {
+export async function execTask(
+  task: Task,
+  timeout?: number
+): Promise<{ start: number; cost: number; end: number }> {
   const start = new Date().getTime()
   try {
     getLogger().debug(`START TASK：${task.name}`)
-    await task.run()
+    // 支持任务超时设置
+    if (timeout && timeout > 0) {
+      await Promise.race([
+        task.run(),
+        new Promise<void>((_, reject) => {
+          setTimeout(() => {
+            reject('The task has timed out.')
+          }, timeout)
+        })
+      ])
+    } else {
+      await task.run()
+    }
   } catch (e) {
     getLogger().error(`TASK ERROR: ${task.name}`, e)
   }

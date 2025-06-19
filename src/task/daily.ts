@@ -6,9 +6,15 @@ import { Task, TaskController, execTask } from './task'
  * @param hours 时
  * @param minutes 分
  * @param task 要执行的任务
+ * @param timeout 任务超时时间，单位毫秒
  * @returns
  */
-export function scheduleDailyTask(hours: number, minutes: number, task: Task): TaskController {
+export function scheduleDailyTask(
+  hours: number,
+  minutes: number,
+  task: Task,
+  timeout?: number
+): TaskController {
   // 校验
   validate(
     { hours, minutes },
@@ -19,7 +25,7 @@ export function scheduleDailyTask(hours: number, minutes: number, task: Task): T
   )
   const taskController = new TaskController()
   const delay = dailyTaskDelay(hours, minutes)
-  setTimeout(() => exec(hours, minutes, task, taskController), delay)
+  setTimeout(() => exec(hours, minutes, task, taskController, timeout), delay)
   return taskController
 }
 /**
@@ -44,13 +50,19 @@ export function dailyTaskDelay(hours: number, minutes: number): number {
   return tomorrowTime - now.getTime()
 }
 
-function exec(hours: number, minutes: number, task: Task, controller: TaskController) {
+function exec(
+  hours: number,
+  minutes: number,
+  task: Task,
+  controller: TaskController,
+  timeout?: number
+) {
   Promise.resolve()
     .then(async () => {
       if (controller.isStopped()) {
         return
       }
-      await execTask(task)
+      await execTask(task, timeout)
       const delay = dailyTaskDelay(hours, minutes)
       setTimeout(() => exec(hours, minutes, task, controller), delay)
     })

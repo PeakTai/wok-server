@@ -208,7 +208,7 @@ export abstract class BaseMysqlManager {
    * @param updater
    * @returns 更新是否成功
    */
-  updateOne<T>(table: Table<T>, criteria: Partial<T>, updater: Updater<T>) {
+  updateOne<T>(table: Table<T>, criteria: MixCriteria<T>, updater: Updater<T>) {
     if (!Object.keys(criteria).length) {
       throw new MysqlException('criteria cannot be empty !')
     }

@@ -7,11 +7,13 @@ import { Task, TaskController, execTask } from './task'
  * @param initialDelay  第一次执行延迟的时间，单位秒
  * @param period 每次的延迟时间，单位秒
  * @param task 任务
+ * @param timeout 任务超时时间，单位毫秒
  */
 export function scheduleWithFixedRate(
   initialDelay: number,
   period: number,
-  task: Task
+  task: Task,
+  timeout?: number
 ): TaskController {
   validate(
     { initialDelay, period },
@@ -22,17 +24,17 @@ export function scheduleWithFixedRate(
   )
 
   const taskController = new TaskController()
-  setTimeout(() => exec(period, task, taskController), initialDelay * 1000)
+  setTimeout(() => exec(period, task, taskController, timeout), initialDelay * 1000)
   return taskController
 }
 
-function exec(fixedDelay: number, task: Task, controller: TaskController) {
+function exec(fixedDelay: number, task: Task, controller: TaskController, timeout?: number) {
   Promise.resolve()
     .then(async () => {
       if (controller.isStopped()) {
         return
       }
-      const res = await execTask(task)
+      const res = await execTask(task, timeout)
       // 下次执行
       let delay = res.start + fixedDelay * 1000 - new Date().getTime()
       if (delay < 0) {

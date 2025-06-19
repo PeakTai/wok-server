@@ -194,7 +194,7 @@ export async function updateOne<T>(
   config: MysqlConfig,
   connection: PoolConnection,
   table: Table<T>,
-  query: Partial<T>,
+  query: MixCriteria<T>,
   updater: Updater<T>
 ): Promise<boolean> {
   const values: any[] = []
