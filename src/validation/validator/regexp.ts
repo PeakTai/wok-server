@@ -16,6 +16,10 @@ export function regexp<T>(pattern: RegExp, msg?: string): PropValidator<T> {
     if (typeof val !== 'string') {
       return { ok: false, validator, message: getI18n().buildMsg('validate-err-string') }
     }
+    // 跳过空串
+    if (!val) {
+      return { ok: true }
+    }
     if (!pattern.test(val)) {
       return {
         ok: false,
