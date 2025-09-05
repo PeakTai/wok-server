@@ -8,6 +8,14 @@ import { LogLevel, parseLogLevel } from './level'
  */
 interface EnvConfig {
   /**
+   * 是否输出日志到控制台
+   */
+  console: boolean
+  /**
+   * 输出日志的格式
+   */
+  format: 'text' | 'json'
+  /**
    * 是否输出到文件，如果为 true ，则会在根目录下生成 logs 目录存放日志文件.
    */
   file: boolean
@@ -27,6 +35,8 @@ interface EnvConfig {
 
 const envConfig = registerConfig<EnvConfig>(
   {
+    console: true,
+    format: 'text',
     file: false,
     fileDir: 'logs',
     fileMaxDays: 30,
@@ -34,6 +44,8 @@ const envConfig = registerConfig<EnvConfig>(
   },
   'LOG',
   {
+    console: [notNull()],
+    format: [notNull()],
     file: [notNull()],
     fileDir: [notBlank()],
     fileMaxDays: [min(1)],
@@ -53,5 +65,7 @@ export const config: LogConfig = Object.freeze({
   file: envConfig.file,
   fileDir,
   fileMaxDays: envConfig.fileMaxDays,
-  level: parseLogLevel(level)
+  level: parseLogLevel(level),
+  console: envConfig.console,
+  format: envConfig.format
 })

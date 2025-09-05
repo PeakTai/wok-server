@@ -7,6 +7,8 @@ process.env.LOG_LEVEL = 'info'
 process.env.LOG_FILE = 'true'
 process.env.LOG_FILE_MAX_DAYS = '10'
 process.env.LOG_FILE_DIR = 'logs'
+process.env.LOG_CONSOLE = 'true'
+process.env.LOG_FORMAT = 'text'
 
 // mvc
 process.env.SERVER_PORT = '8080'

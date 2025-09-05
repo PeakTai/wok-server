@@ -2,7 +2,7 @@ import { equal, ok } from 'assert'
 import { existsSync, readFileSync, rmSync } from 'fs'
 import { EOL } from 'os'
 import { resolve } from 'path'
-import { getLogger, setLogStore } from '../src'
+import { formatLogText, getLogger, setLogStore } from '../src'
 import { runTestAsync, sleep } from './utils'
 
 /**
@@ -11,13 +11,11 @@ import { runTestAsync, sleep } from './utils'
  */
 function buildlogFilePath() {
   const date = new Date()
-  let fileName = `${date.getFullYear()}-`
-  const month = date.getMonth() + 1
-  fileName += month.toFixed(0).padStart(2, '0')
-  fileName += '-'
+  const year = date.getFullYear()
+  const month = date.getMonth() + 1 // 转换为1-12
   const day = date.getDate()
-  fileName += day.toFixed(0).padStart(2, '0')
-  fileName += '.log'
+  const dateKey = year * 10000 + month * 100 + day
+  const fileName = `${dateKey}.log`
   return resolve(process.cwd(), 'logs', fileName)
 }
 /**
@@ -51,7 +49,7 @@ describe('日志', () => {
   it(
     '日志基本测试',
     runTestAsync(async () => {
-      const logger = getLogger()
+      const logger = getLogger('测试')
       ok(logger.isInfoEnabled())
       ok(logger.isWarnEnabled())
       ok(logger.isErrorEnabled())
@@ -76,7 +74,7 @@ describe('日志', () => {
 
       // 自定义存储
       const msgs: string[] = []
-      setLogStore(log => msgs.push(log))
+      setLogStore(log => msgs.push(formatLogText(log)))
       logger.info('第一条')
       logger.warn('第二条')
       logger.debug('第三条')
