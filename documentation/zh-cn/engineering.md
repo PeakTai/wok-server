@@ -204,7 +204,7 @@ user/create-user.ts 示例：
 
 ```ts
 import { createJsonHandler, getMysqlManager, notBlank, length } from 'wok-server'
-import { User, tableUser } from './user.ts'
+import { User, tableUser } from './user'
 
 /**
  * 请求发送的表单信息

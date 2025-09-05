@@ -29,7 +29,7 @@ mysql 组件基于 [mysql2](https://www.npmjs.com/package/mysql2) 封装，提�
 | MYSQL_SLOW_SQL_MS             | 慢 sql 毫秒数，默认 200                               |
 | MYSQL_TRANSACTION_TIMEOUT     | 事务超时时间，单位毫秒，默认 5000                     |
 | MYSQL_TRANSACTION_STRICT      | 事务严格模式，默认 true，设置为 false 可关闭严格模式  |
-| MYSQL_MAX_OPS_IN_STRICT_TX    | 严格事务中可以执行的操作次数，默认 10  |
+| MYSQL_MAX_OPS_IN_STRICT_TX    | 严格事务中可以执行的操作次数，默认 10                 |
 
 ## 初始化
 
@@ -48,7 +48,7 @@ await enableMysql()
 await enableMysql('d2')
 ```
 
-上传的操作要激活 mysql 　时，会自动映射以 `D2_` 为前缀的环境变量。
+执行上面的操作后，会自动映射以 `D2_` 为前缀的环境变量。
 
 下面是多数据源的环境变量示例：
 
@@ -284,27 +284,28 @@ await manager.modify(`update user set nickname='无名' where nickname='佚名'`
 
 ### 所有操作方法
 
-| 方法          | 功能说明                                                                    |
-| :------------ | :-------------------------------------------------------------------------- |
-| findById      | 按 id 查询                                                                  |
-| findByIdIn    | 按 id 列表查询多条记录                                                      |
-| existsBy      | 判定指定的条件是否存在记录                                                  |
-| existsById    | 判定 id 是否存在                                                            |
-| deleteById    | 按 id 删除                                                                  |
-| deleteMany    | 按指定条件删除，危险操作，建议尽可能设置 limit 参数来限制数量               |
-| findAll       | 查询表下所有记录，危险操作，建议只对数据量非常小的表使用                    |
-| findFirst     | 查询符合条件的第一条记录                                                    |
-| insert        | 插入记录                                                                    |
-| insertMany    | 一次性插入多条记录                                                          |
-| update        | 更新记录，需要完整信息                                                      |
-| partialUpdate | 局部更新，只提供 id 和需要更新的字段信息                                    |
-| updateOne     | 只更新指定条件的第一条记录，必须是相等条件，不支持范围条件                  |
-| updateMany    | 更新所有符合条件的记录，危险操作，建议对条件严加限制，控制受影响的范围      |
-| find          | 按条件查询所有符合条件的记录，危险操作，建议尽可能设置 limit 参数来限制数量 |
-| count         | 统计符合条件的记录数量，危险操作，建议严格限制条件，注意索引的利用          |
-| paginate      | 分页查询 ，危险操作，基于 find 和 count                                     |
-| query         | 自定义 sql 查询，返回记录列表，支持预编译 sql                               |
-| modify        | 执行自定义 sql，返回操作记录数 ，支持预编译 sql                             |
+| 方法          | 功能说明                                                                            |
+| :------------ | :---------------------------------------------------------------------------------- |
+| findById      | 按 id 查询                                                                          |
+| findByIdIn    | 按 id 列表查询多条记录                                                              |
+| existsBy      | 判定指定的条件是否存在记录                                                          |
+| existsById    | 判定 id 是否存在                                                                    |
+| deleteById    | 按 id 删除                                                                          |
+| deleteMany    | 按指定条件删除，危险操作，建议尽可能设置 limit 参数来限制数量                       |
+| findAll       | 查询表下所有记录，危险操作，建议只对数据量非常小的表使用                            |
+| findFirst     | 查询符合条件的第一条记录                                                            |
+| insert        | 插入记录                                                                            |
+| insertMany    | 一次性插入多条记录                                                                  |
+| update        | 更新记录，需要完整信息                                                              |
+| partialUpdate | 局部更新，只提供 id 和需要更新的字段信息                                            |
+| updateOne     | 只更新指定条件的第一条记录，必须是相等条件，不支持范围条件                          |
+| updateMany    | 更新所有符合条件的记录，危险操作，建议对条件严加限制，控制受影响的范围              |
+| find          | 按条件查询所有符合条件的记录，危险操作，建议尽可能设置 limit 参数来限制数量         |
+| findSelect    | 指定字段进行条件查询,与 find 唯一的不同的是多一个参数 select 可以用来指定要返回的列 |
+| count         | 统计符合条件的记录数量，危险操作，建议严格限制条件，注意索引的利用                  |
+| paginate      | 分页查询 ，危险操作，基于 find 和 count                                             |
+| query         | 自定义 sql 查询，返回记录列表，支持预编译 sql                                       |
+| modify        | 执行自定义 sql，返回操作记录数 ，支持预编译 sql                                     |
 
 ### json 类型
 

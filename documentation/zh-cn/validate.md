@@ -20,8 +20,8 @@ validate(
 
 | 函数        | 作用                                                 |
 | :---------- | :--------------------------------------------------- |
-| notNull     | 非空校验，不能是 null 或 undefinded                  |
-| notBlank    | 字符非空校验，不能是 null 或 undefinded 或空白字符串 |
+| notNull     | 非空校验，不能是 null 或 undefined                    |
+| notBlank    | 字符非空校验，不能是 null 或 undefined 或空白字符串 |
 | min         | 校验数字最小值                                       |
 | max         | 校验数字最大值                                       |
 | length      | 校验长度，适用于字符串和数组                         |
