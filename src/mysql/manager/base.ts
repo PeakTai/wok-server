@@ -28,7 +28,9 @@ import {
   query,
   update,
   updateMany,
-  updateOne
+  updateOne,
+  FindSelectOpts,
+  findSelect
 } from './ops'
 import { promiseGetConnection } from './utils'
 
@@ -233,6 +235,15 @@ export abstract class BaseMysqlManager {
    */
   find<T>(opts: FindOpts<T>): Promise<T[]> {
     return this.queryWithConnection(conn => find(this.opts.config, conn, opts))
+  }
+
+  /**
+   * 指定字段条件查询
+   * @param opts
+   * @returns
+   */
+  findSelect<T, K extends keyof T>(opts: FindSelectOpts<T, K>): Promise<Pick<T, K>[]> {
+    return this.queryWithConnection(conn => findSelect(this.opts.config, conn, opts))
   }
 
   /**

@@ -109,6 +109,58 @@ export async function find<T>(
   const res = await promiseQuery(config, conn, sql, values)
   return res as RowDataPacket[] as T[]
 }
+
+/**
+ * 指定字段条件查询选项
+ */
+export interface FindSelectOpts<T, K extends keyof T> extends FindOpts<T> {
+  /**
+   * 要查询的字段
+   */
+  select: K[]
+}
+
+/**
+ * 查询指定的字段，返回值类型与选择的字段有关
+ * @param onfig
+ * @param conn
+ * @param opts
+ */
+export async function findSelect<T, K extends keyof T>(
+  config: MysqlConfig,
+  conn: PoolConnection,
+  opts: FindSelectOpts<T, K>
+): Promise<Array<Pick<T, K>>> {
+  let query = opts.criteria ? buildQuery(opts.criteria) : undefined
+  const values: any[] = []
+  let sql = `select ${opts.select.map(() => '??').join(',')} from ?? `
+  values.push(...opts.select, opts.table.tableName)
+  if (query) {
+    sql += ` where ${query.sql} `
+    values.push(...query.values)
+  }
+  // 排序
+  if (opts.orderBy && opts.orderBy.length) {
+    opts.orderBy.forEach((orderBy, idx) => {
+      const [field, sort] = orderBy
+      if (idx == 0) {
+        sql += ` order by ?? ${sort} `
+      } else {
+        sql += ` , ?? ${sort} `
+      }
+      values.push(field)
+    })
+  }
+  // 数量限制
+  if (opts.limit) {
+    sql += ` limit ${opts.limit} `
+    if (opts.offset) {
+      sql += ` offset ${opts.offset}`
+    }
+  }
+  const res = await promiseQuery(config, conn, sql, values)
+  return res as RowDataPacket[] as Pick<T, K>[]
+}
 /**
  * 根据 id 列表查询记录
  * @param connection
@@ -155,8 +207,8 @@ export async function findFirst<T>(
     sql += ` where ${query.sql} `
     values.push(...query.values)
   }
-   // 排序
-   if (orderBy && orderBy.length) {
+  // 排序
+  if (orderBy && orderBy.length) {
     orderBy.forEach((orderBy, idx) => {
       const [field, sort] = orderBy
       if (idx == 0) {
@@ -168,12 +220,7 @@ export async function findFirst<T>(
     })
   }
   sql += ' limit 1'
-  const res = await promiseQuery(
-    config,
-    conn,
-    sql,
-    values
-  )
+  const res = await promiseQuery(config, conn, sql, values)
   const list = res as RowDataPacket[] as T[]
   return list.length ? list[0] : null
 }

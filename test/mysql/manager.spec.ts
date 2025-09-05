@@ -661,6 +661,80 @@ describe('mysql 组件测试', () => {
       equal(uu2.id, 'find3')
     })
   )
+
+  it(
+    'find select 测试',
+    runTestAsync(async () => {
+      const manager = getMysqlManager()
+      await Promise.all([
+        manager.insert(tableUser, {
+          id: 'x-find-select-1',
+          nickname: 'find-select-1',
+          balance: 788,
+          active: true
+        }),
+        manager.insert(tableUser, {
+          id: 'x-find-select-2',
+          nickname: 'find-select-2',
+          balance: 790,
+          active: true
+        }),
+        manager.insert(tableUser, {
+          id: 'x-find-select-3',
+          nickname: 'find-select-3',
+          balance: 777,
+          active: true
+        }),
+        manager.insert(tableUser, {
+          id: 'x-find-select-4',
+          nickname: 'find-select-4',
+          balance: 793,
+          active: true
+        })
+      ])
+      // 测试 select 语句
+      const list = await manager.findSelect({
+        table: tableUser,
+        criteria: c => c.eq('active', true).like('id', 'x-find-select-%'),
+        select: ['nickname', 'balance'],
+        offset: 0,
+        limit: 10,
+        orderBy: [['balance', 'asc']]
+      })
+      console.log(list)
+      equal(list.length, 4)
+      const [u1, u2, u3, u4] = list
+      equal(u1.nickname, 'find-select-3')
+      equal(u1.balance, 777)
+      equal(u2.nickname, 'find-select-1')
+      equal(u2.balance, 788)
+      equal(u3.nickname, 'find-select-2')
+      equal(u3.balance, 790)
+      equal(u4.nickname, 'find-select-4')
+      equal(u4.balance, 793)
+      // 判定对象上只有 nickname 和 balance 两个属性
+      equal(Object.keys(u1).length, 2)
+      equal(Object.keys(u2).length, 2)
+      equal(Object.keys(u3).length, 2)
+      equal(Object.keys(u4).length, 2)
+      equal(Object.keys(u1).includes('id'), false)
+      equal(Object.keys(u2).includes('id'), false)
+      equal(Object.keys(u3).includes('id'), false)
+      equal(Object.keys(u4).includes('id'), false)
+      equal(Object.keys(u1).includes('active'), false)
+      equal(Object.keys(u2).includes('active'), false)
+      equal(Object.keys(u3).includes('active'), false)
+      equal(Object.keys(u4).includes('active'), false)
+      equal(Object.keys(u1).includes('nickname'), true)
+      equal(Object.keys(u2).includes('nickname'), true)
+      equal(Object.keys(u3).includes('nickname'), true)
+      equal(Object.keys(u4).includes('nickname'), true)
+      equal(Object.keys(u1).includes('balance'), true)
+      equal(Object.keys(u2).includes('balance'), true)
+      equal(Object.keys(u3).includes('balance'), true)
+      equal(Object.keys(u4).includes('balance'), true)
+    })
+  )
   it(
     'count 测试',
     runTestAsync(async () => {

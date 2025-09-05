@@ -6,6 +6,7 @@ import { MysqlException } from '../exception'
 import {
   DeleteManyOpts,
   FindOpts,
+  FindSelectOpts,
   MixCriteria,
   MysqlPage,
   MysqlPaginateOpts,
@@ -113,6 +114,10 @@ export class MysqlStrictTxSession extends MysqlTxSession {
 
   find<T>(opts: FindOpts<T>): Promise<T[]> {
     throw new MysqlException('Prohibited to use find in a strict transaction.')
+  }
+
+  findSelect<T, K extends keyof T>(opts: FindSelectOpts<T, K>): Promise<Pick<T, K>[]> {
+    throw new MysqlException('Prohibited to use findSelect in a strict transaction.')
   }
 
   count<T>(table: Table<T>, criteria?: MixCriteria<T> | undefined): Promise<number> {
