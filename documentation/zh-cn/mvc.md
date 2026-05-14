@@ -632,36 +632,78 @@ await startWebServer({
 
 ### Server-Sent Events
 
-组件本身没有直接提供对 SSE（Server-Sent Events） 的支持，可以在路由的处理函数中适当的进行处理来实现。
+从 0.6.0 版本开始，MVC 组件内置了 `createSseHandler`，封装了 SSE 协议细节，大幅简化服务端推送实现。
 
 ```ts
-// 启动服务
+import { createSseHandler } from 'wok-server'
+
 await startWebServer({
-  // 路由配置
   routers: {
-    '/sse': async exchange => {
-      const { response } = exchange
-      // 设置消息头
-      response.setHeader('Content-Type', 'text/event-stream')
-      response.setHeader('Cache-Control', 'no-cache')
-      response.setHeader('Connection', 'keep-alive')
-      // 模拟异步操作更新多条消息
-      let counter = 0
-      for (let i = 0; i < 10; i++) {
-        // 沉睡一秒，模拟异步业务处理
-        await new Promise<void>((resolve, reject) => {
-          setTimeout(resolve, 1000)
-        })
-        counter++
-        // 写数据到响应信息中，前端在 EventSource 的 message 事件中处理
-        response.write(`data: ${JSON.stringify({ message: '实时更新', count: counter })}\n\n`)
-        if (counter >= 10) {
-          break
+    '/sse': createSseHandler({
+      async handle(ctx) {
+        let counter = 0
+        for (let i = 0; i < 10; i++) {
+          await new Promise<void>(resolve => setTimeout(resolve, 1000))
+          counter++
+          ctx.send({ message: '实时更新', count: counter })
+          if (counter >= 10) {
+            break
+          }
         }
+        ctx.close()
       }
-      // 最后结束响应
-      response.end()
-    }
+    })
   }
 })
 ```
+
+`handle` 函数接收一个 `SseContext` 对象，提供以下能力：
+
+| 方法/属性                                 | 说明                                                         |
+| :---------------------------------------- | :----------------------------------------------------------- |
+| `ctx.send(data, event?, id?)`            | 发送 SSE 事件，`data` 会被 JSON 序列化。`event` 指定事件名（前端用 `addEventListener` 监听），`id` 设置事件 ID（用于断线重连的 `Last-Event-ID`） |
+| `ctx.close()`                             | 显式结束 SSE 连接。`handle` 返回或抛异常时连接也会自动关闭   |
+| `ctx.request`                             | 原始 `IncomingMessage`，可读取请求头等信息                   |
+| `ctx.response`                            | 原始 `ServerResponse`，高级场景下使用                         |
+
+#### 命名事件
+
+通过 `event` 参数发送命名事件，前端可按事件类型分别处理：
+
+```ts
+createSseHandler({
+  async handle(ctx) {
+    ctx.send({ title: '新消息' }, 'notification')
+    ctx.send({ progress: 50 }, 'progress')
+  }
+})
+```
+
+前端：
+
+```ts
+const es = new EventSource('/sse')
+es.addEventListener('notification', e => {
+  const data = JSON.parse(e.data)
+  console.log('收到通知：', data.title)
+})
+```
+
+#### 断线重连
+
+通过 `id` 参数设置事件 ID，前端断线重连时浏览器会自动发送 `Last-Event-ID` 请求头：
+
+```ts
+createSseHandler({
+  async handle(ctx) {
+    const lastId = ctx.request.headers['last-event-id']
+    // 根据 lastId 确定从何处恢复推送
+  }
+})
+```
+
+#### 连接生命周期
+
+- `handle` 开始执行时，SSE 消息头已发送，连接已建立
+- 客户端断开连接时，`ctx.send()` 调用变为空操作（自动忽略）
+- `handle` 返回或抛异常时，连接自动关闭
