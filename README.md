@@ -1,57 +1,72 @@
+[English](./README.en.md) | 简体中文
+
 # Wok Server
 
-一个简洁易用的 Nodejs 后端框架，使用 Typescript 开发，有完整的类型约束和定义，注释详细，文档齐全，支持国际化。
+[![npm version](https://img.shields.io/npm/v/wok-server)](https://www.npmjs.com/package/wok-server)
+[![license](https://img.shields.io/npm/l/wok-server)](https://github.com/nicepkg/wok-server/blob/master/LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue)](https://www.typescriptlang.org/)
 
-主要功能：配置，日志，国际化，校验，缓存，MVC，mysql，mongodb ，周期任务 。
+一个基于 Node.js 和 TypeScript 的后端框架，轻量、克制、简洁。
 
-[查看文档](https://gitee.com/tai/wok-server/blob/master/documentation/zh-cn/index.md)
+## 功能概览
 
-## 优点
+- **基础设施** — 配置管理、日志、国际化、缓存
+- **Web 层** — 路由、参数校验、MVC
+- **数据库** — MySQL、MongoDB
+- **其他** — 周期任务
 
-- 学习成本较低，函数式为主，少量面向对象，未使用代理和装饰器等增强技术
-- 功能简单，使用方便，保持克制，不引入太多特性
-- 轻量封装，最大限度兼容已有生态，支持集成第三方 http 相关的库来处理请求
-- 支持国际化，自带多种语言的支持，国际化内容支持扩展
-- 有完整的类型约束和定义，结合 IDE 的代码补全功能，开发效率高
-- 注释详细，文档就在代码中，方法和参数都有详细说明，可在 IDE 的辅助下方便查看
+## 为什么选择 Wok Server
 
-## Hello world
+- 函数式为主，少量面向对象，学习成本低
+- 保持克制，不引入代理、装饰器等增强技术
+- 轻量封装，兼容第三方 HTTP 生态
+- 完整的类型定义，配合 IDE 智能补全，开发效率高
+- 注释即文档，方法及参数均有详细说明
+- 内置国际化支持，可扩展多语言
 
-安装：
+## 快速开始
 
+```bash
+npm i wok-server
 ```
-npm i wok-server --save
-```
-
-入口文件：
 
 ```ts
 import { startWebServer } from 'wok-server'
 
 startWebServer({
   routers: {
-    '/': async exchange => exchange.respondText('Hello world !')
+    '/': async exchange => exchange.respondText('Hello world!')
   }
 }).catch(e => {
   console.error('Start server failed', e)
 })
 ```
 
-上面的代码启动了 web 服务，访问路径 `http://localhost:8080` 将输出文本 “Hello world !”。
+启动后访问 `http://localhost:8080` 即可看到输出。
 
-相关的设置可以通过环境变量来修改，查看[完整文档](https://gitee.com/tai/wok-server/blob/master/documentation/zh-cn/index.md)了解细节。
+更多配置通过环境变量设置，详见[完整文档](https://gitee.com/tai/wok-server/blob/master/documentation/zh-cn/index.md)。
 
-## 一些问题的说明
+### AI 技能安装
 
-### 为什么直接集成依赖库
+wok-server 提供了 AI 技能，安装后可以让 AI 编程助手更好地理解和使用 wok-server 组件。
 
-项目中对 mysql 客户端和 mongodb 的驱动直接打包集成了，也没有将这两个组件
-单独拆分成一个独立的包以供按需引入。这样做是为了方便，不需要安装那么多包，安装的包多了
-之后，还有可能需要解决依赖冲突问题，找到版本匹配的包，使用和维护都麻烦。对于后端程序来说，
-体积大一些问题也不大。
 
-### 为什么部分可选功能需要第三方库，而又没有集成
+```bash
+npx skills add peaktai/wok-server --all
+```
 
-对于 wesocket 和文件上传等功能，框架没有实现，而是需要使用者引入第三方库，框架没有集成这些库。
-这些库是基于 Nodejs 内置的模块 http，不用担心与框架的兼容性问题，框架只要保持支持即可，
-也可以充分利用已有的生态，不需要专门为框架编写扩展。
+国内用户访问 github 速度慢，可以使用 gitee 仓库地址来安装。
+
+```bash
+npx skills add https://gitee.com/tai/wok-server.git --all
+```
+
+## FAQ
+
+### 为什么内置 MySQL 和 MongoDB 驱动？
+
+mysql2 和 mongodb 驱动已直接集成，安装一个包即可使用，避免多个包的版本冲突和维护成本。对于后端应用，包体积的增加影响有限。
+
+### 为什么 WebSocket、文件上传等功能需要自行引入？
+
+这些功能基于 Node.js 原生 `http` 模块，天然兼容框架，无需专门适配。由用户按需引入第三方库，可以充分利用社区生态，同时减少框架的维护负担。
