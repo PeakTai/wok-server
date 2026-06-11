@@ -53,12 +53,21 @@ interface Criterion<T> {
     | 'isNotNull'
     | 'notLike'
     | 'between'
+    | 'expr'
   key?: MysqlCriteriaKey<T>
   value?: any
   /**
    * 嵌套的其它查询， or 和 and  条件下有效
    */
   criteria?: MysqlCriteria<T>
+  /**
+   * 自定义表达式的 SQL 片段（expr 条件下有效）
+   */
+  exprSql?: string
+  /**
+   * 自定义表达式的参数值
+   */
+  exprValues?: any[]
 }
 
 /**
@@ -209,6 +218,19 @@ export class MysqlCriteria<T> {
     return this
   }
   /**
+   * 自定义表达式查询
+   * 如 .expr('?? * ? > ?', ['balance', 2, 50])
+   * 如 .expr('MATCH(??, ??) AGAINST(? IN BOOLEAN MODE)', ['title', 'content', keyword])
+   * 如 .expr('VECTOR_DISTANCE(??, STRING_TO_VECTOR(?)) < ?', ['content_vec', embedding, threshold])
+   * @param sql SQL 片段，使用 ?? 引用列名，? 引用参数值
+   * @param values 参数值数组，按 SQL 中占位符顺序传入
+   * @returns
+   */
+  expr(sql: string, values?: any[]) {
+    this.criteria.push({ type: 'expr', exprSql: sql, exprValues: values || [] })
+    return this
+  }
+  /**
    * 判定是否空，未设置条件.
    * @returns
    */
@@ -220,6 +242,12 @@ export class MysqlCriteria<T> {
    */
   check() {
     for (const criterion of this.criteria) {
+      if (criterion.type === 'expr') {
+        if (!criterion.exprSql) {
+          throw new MysqlException('expr clause exprSql cannot be empty')
+        }
+        continue
+      }
       if (criterion.type === 'or' || criterion.type === 'and') {
         if (!criterion.criteria) {
           throw new MysqlException(`${criterion.type} clause cannot be empty`)
@@ -356,6 +384,12 @@ export class MysqlCriteria<T> {
           values.push(...query.values)
           continue
         }
+      }
+      // 自定义表达式
+      else if (criterion.type === 'expr' && criterion.exprSql) {
+        sqlFragments.push(`and ${criterion.exprSql} `)
+        values.push(...(criterion.exprValues || []))
+        continue
       }
     }
     if (!sqlFragments.length) {

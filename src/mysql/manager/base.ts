@@ -8,8 +8,11 @@ import {
   MixCriteria,
   MysqlPage,
   MysqlPaginateOpts,
+  MysqlPaginateSelectOpts,
+  OrderBy,
   UpdateOpts,
   Updater,
+  InsertValue,
   count,
   deleteMany,
   deleteById,
@@ -24,13 +27,17 @@ import {
   insertMany,
   modify,
   paginate,
+  paginateSelect,
   partialUpdate,
   query,
   update,
   updateMany,
   updateOne,
   FindSelectOpts,
-  findSelect
+  findSelect,
+  upsert,
+  upsertMany,
+  upsertWithUpdater
 } from './ops'
 import { promiseGetConnection } from './utils'
 
@@ -162,7 +169,7 @@ export abstract class BaseMysqlManager {
   findFirst<T>(
     table: Table<T>,
     criteria?: MixCriteria<T>,
-    orderBy?: Array<[keyof T, 'asc' | 'desc']>
+    orderBy?: OrderBy<T>
   ): Promise<T | null> {
     return this.queryWithConnection(conn =>
       findFirst(this.opts.config, conn, table, criteria, orderBy)
@@ -175,7 +182,7 @@ export abstract class BaseMysqlManager {
    * @param data 数据，数据必须是 T 的实例, T 必须是已配置的实体类类型，否则无法完成操作
    * @returns 插入后的数据
    */
-  insert<T>(table: Table<T>, data: T): Promise<T> {
+  insert<T>(table: Table<T>, data: InsertValue<T>): Promise<T> {
     return this.queryWithConnection(conn => insert(this.opts.config, conn, table, data))
   }
   /**
@@ -183,8 +190,39 @@ export abstract class BaseMysqlManager {
    * @param table 表
    * @param list 要插入的数据列表
    */
-  insertMany<T>(table: Table<T>, list: T[]): Promise<void> {
+  insertMany<T>(table: Table<T>, list: InsertValue<T>[]): Promise<void> {
     return this.queryWithConnection(conn => insertMany(this.opts.config, conn, table, list))
+  }
+  /**
+   * Upsert 单条数据
+   * 如果主键冲突则更新，否则插入
+   * @param table 表信息
+   * @param data 数据
+   * @returns
+   */
+  upsert<T>(table: Table<T>, data: InsertValue<T>): Promise<T> {
+    return this.queryWithConnection(conn => upsert(this.opts.config, conn, table, data))
+  }
+  /**
+   * Upsert 多条数据
+   * 如果主键冲突则更新，否则插入
+   * @param table 表
+   * @param list 要插入的数据列表
+   * @returns 影响的行数
+   */
+  upsertMany<T>(table: Table<T>, list: InsertValue<T>[]): Promise<number> {
+    return this.queryWithConnection(conn => upsertMany(this.opts.config, conn, table, list))
+  }
+  /**
+   * Upsert 单条数据（支持自定义更新器）
+   * 如果主键冲突则按自定义逻辑更新，否则插入
+   * @param table 表信息
+   * @param data 插入的数据
+   * @param updater 冲突时的更新器
+   * @returns
+   */
+  upsertWithUpdater<T>(table: Table<T>, data: InsertValue<T>, updater: Updater<T>): Promise<T> {
+    return this.queryWithConnection(conn => upsertWithUpdater(this.opts.config, conn, table, data, updater))
   }
   /**
    * 更新
@@ -262,6 +300,15 @@ export abstract class BaseMysqlManager {
    */
   paginate<T>(opts: MysqlPaginateOpts<T>): Promise<MysqlPage<T>> {
     return this.queryWithConnection(conn => paginate(this.opts.config, conn, opts))
+  }
+
+  /**
+   * 指定字段分页查询
+   * @param opts
+   * @returns
+   */
+  paginateSelect<T, K extends keyof T>(opts: MysqlPaginateSelectOpts<T, K>): Promise<MysqlPage<Pick<T, K>>> {
+    return this.queryWithConnection(conn => paginateSelect(this.opts.config, conn, opts))
   }
 
   /**

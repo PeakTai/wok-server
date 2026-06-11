@@ -228,12 +228,32 @@ await manager.insert(tableUser, {
   nickname: '小明',
   balance: 1
 })
+// 插入时使用表达式
+await manager.insert(tableUser, {
+  id: 'in002',
+  nickname: '小红',
+  balance: ['expr', '?? * ?', ['score', 2]],
+  createAt: ['now']
+})
 // 批量插入
 await manager.insertMany(tableUser, [
   { id: 'im001', nickname: '张飞', balance: 0 },
   { id: 'im002', nickname: '关羽', balance: 2 },
   { id: 'im003', nickname: '刘备', balance: 5 }
 ])
+// Upsert 单条，id 冲突则更新
+await manager.upsert(tableUser, { id: 'us001', nickname: '赵云', balance: 10 })
+// Upsert 批量
+await manager.upsertMany(tableUser, [
+  { id: 'us002', nickname: '马超', balance: 20 },
+  { id: 'us003', nickname: '黄忠', balance: 30 }
+])
+// Upsert 单条，冲突时自定义更新（如递增余额）
+await manager.upsertWithUpdater(
+  tableUser,
+  { id: 'us001', nickname: '赵云', balance: 10 },
+  { balance: ['inc', 5], nickname: '赵云-updated' }
+)
 // 根据指定的条件查询第一条符合的记录
 const user = await manager.findFirst(tableUser, c =>
   c.like('nickname', 'ff0%').gt('balance', 75).lt('balance', 77)
@@ -252,6 +272,18 @@ await manager.find({
   criteria: c => c.between('balance', 700, 800).like('id', 'find%'),
   offset: 1,
   limit: 10,
+  orderBy: [['balance', 'asc']]
+})
+// 自定义排序表达式：按 balance * 2 降序
+await manager.find({
+  table: tableUser,
+  criteria: c => c.like('nickname', 'ff0%'),
+  orderBy: [['expr', '?? * ?', ['balance', 2], 'desc']]
+})
+// 自定义查询条件表达式：balance * 2 > 50
+await manager.find({
+  table: tableUser,
+  criteria: c => c.like('id', 'critex%').expr('?? * ? > ?', ['balance', 2, 50]),
   orderBy: [['balance', 'asc']]
 })
 // 统计符合条件的记录数量
@@ -294,18 +326,99 @@ await manager.modify(`update user set nickname='无名' where nickname='佚名'`
 | deleteMany    | 按指定条件删除，危险操作，建议尽可能设置 limit 参数来限制数量                       |
 | findAll       | 查询表下所有记录，危险操作，建议只对数据量非常小的表使用                            |
 | findFirst     | 查询符合条件的第一条记录                                                            |
-| insert        | 插入记录                                                                            |
-| insertMany    | 一次性插入多条记录                                                                  |
-| update        | 更新记录，需要完整信息                                                              |
-| partialUpdate | 局部更新，只提供 id 和需要更新的字段信息                                            |
-| updateOne     | 只更新指定条件的第一条记录，必须是相等条件，不支持范围条件                          |
-| updateMany    | 更新所有符合条件的记录，危险操作，建议对条件严加限制，控制受影响的范围              |
-| find          | 按条件查询所有符合条件的记录，危险操作，建议尽可能设置 limit 参数来限制数量         |
-| findSelect    | 指定字段进行条件查询,与 find 唯一的不同的是多一个参数 select 可以用来指定要返回的列 |
-| count         | 统计符合条件的记录数量，危险操作，建议严格限制条件，注意索引的利用                  |
-| paginate      | 分页查询 ，危险操作，基于 find 和 count                                             |
-| query         | 自定义 sql 查询，返回记录列表，支持预编译 sql                                       |
-| modify        | 执行自定义 sql，返回操作记录数 ，支持预编译 sql                                     |
+| insert          | 插入记录                                                                            |
+| insertMany      | 一次性插入多条记录                                                                  |
+| upsert          | 插入记录，主键冲突则更新                                                            |
+| upsertMany      | 批量 upsert                                                                         |
+| upsertWithUpdater | upsert 单条，主键冲突时使用自定义更新器（Updater）                                  |
+| update          | 更新记录，需要完整信息                                                              |
+| partialUpdate   | 局部更新，只提供 id 和需要更新的字段信息                                            |
+| updateOne       | 只更新指定条件的第一条记录，必须是相等条件，不支持范围条件                          |
+| updateMany      | 更新所有符合条件的记录，危险操作，建议对条件严加限制，控制受影响的范围              |
+| find            | 按条件查询所有符合条件的记录，危险操作，建议尽可能设置 limit 参数来限制数量         |
+| findSelect      | 指定字段进行条件查询,与 find 唯一的不同的是多一个参数 select 可以用来指定要返回的列 |
+| count           | 统计符合条件的记录数量，危险操作，建议严格限制条件，注意索引的利用                  |
+| paginate        | 分页查询 ，危险操作，基于 find 和 count                                             |
+| paginateSelect  | 指定字段进行分页查询，在 paginate 基础上增加了 select 参数                          |
+| query           | 自定义 sql 查询，返回记录列表，支持预编译 sql                                       |
+| modify          | 执行自定义 sql，返回操作记录数 ，支持预编译 sql                                     |
+
+### 插入表达式
+
+从 0.7.0 版本开始，`insert`、`insertMany`、`upsert` 等插入方法的 data 参数支持 `InsertValue` 类型，
+可以在 VALUES 子句中使用表达式：
+
+```ts
+await manager.insert(tableUser, {
+  id: 'in001',
+  nickname: '小明',
+  // 设置为 NOW()
+  createAt: ['now'],
+  // 解决冲突：将字段设置为 ['setNull'] 这个数组值（而非执行 setNull 操作）
+  extra: ['set', ['setNull']],
+  // 自定义表达式：balance = score * 2
+  balance: ['expr', '?? * ?', ['score', 2]],
+  // 无参数表达式
+  balance2: ['expr', 'RAND() * 100']
+})
+```
+
+### 排序表达式
+
+从 0.7.0 版本开始，`orderBy` 参数升级为 `OrderBy<T>` 类型，除了普通列排序外，还支持自定义表达式排序。
+该类型向后兼容，原有的列排序写法不受影响：
+
+```ts
+await manager.find({
+  table: tableUser,
+  criteria: c => c.like('nickname', 'ob%'),
+  // 普通列排序（与旧版兼容）
+  orderBy: [['balance', 'asc']]
+})
+
+// 自定义表达式排序：按 balance * 2 降序
+// SQL: ORDER BY `balance` * 2 desc
+await manager.find({
+  table: tableUser,
+  criteria: c => c.like('nickname', 'ob%'),
+  orderBy: [['expr', '?? * ?', ['balance', 2], 'desc']]
+})
+
+// 按名称长度排序：CHAR_LENGTH(name) desc
+// SQL: ORDER BY CHAR_LENGTH(`name`) desc
+await manager.find({
+  table: tableBook,
+  criteria: c => c.like('name', 'ob%'),
+  orderBy: [['expr', 'CHAR_LENGTH(??)', ['name'], 'desc']]
+})
+
+// 混合使用：普通列 + 表达式
+orderBy: [
+  ['active', 'asc'],
+  ['expr', '?? * ?', ['balance', 2], 'desc']
+]
+// SQL: ORDER BY `active` asc , `balance` * 2 desc
+```
+
+### 条件表达式
+
+从 0.7.0 版本开始，`MysqlCriteria` 新增 `expr()` 方法，可在 WHERE 子句中插入自定义 SQL 表达式：
+
+```ts
+// balance * 2 > 50
+// SQL: where ... and `balance` * 2 > 50
+await manager.find({
+  table: tableUser,
+  criteria: c => c.like('id', 'critex%').expr('?? * ? > ?', ['balance', 2, 50])
+})
+
+// 全文搜索
+// SQL: where ... and MATCH(`title`, `content`) AGAINST (? IN BOOLEAN MODE)
+await manager.find({
+  table: tableBook,
+  criteria: c => c.expr('MATCH(??, ??) AGAINST(? IN BOOLEAN MODE)', ['title', 'content', keyword])
+})
+```
 
 ### json 类型
 
@@ -431,24 +544,40 @@ partialUpdate 和 updateMany 方法支持局部修改一些字段，并且支持
 await manager.updateMany(tableUser, c => c.between('balance', 23, 24), {
   // 将 balance 增加 2
   balance: ['inc', 2],
+  // 将 balance 增加 1（省略第二个参数，默认 +1）
+  visits: ['inc'],
   // 将 consume_type 置空
-  consume_type:['setNull']
+  consume_type: ['setNull'],
+  // 设置为 NOW()
+  last_login_at: ['now'],
+  // NULL 安全的字符串追加：col = CONCAT(IFNULL(col, ''), ?)
+  nickname: ['concat', '-suffix'],
+  // 自定义表达式：score = score * 2
+  score: ['expr', '?? * ?', ['score', 2]]
 })
 ```
 
-如果将一个字段的值设置为 null 也可以置空，但是这要求设置 ts 类型支持。
+> **注意**：0.7.0 版本已移除 `['func']`，请使用 `['expr']` 替代。
+> 如 `['func', 'NOW()']` → `['expr', 'NOW()']`。
+
+从 **0.7.0 版本**开始，`null` 和 `undefined` 一样会被忽略更新。**如需将字段设置为 NULL，必须使用 `['setNull']`**。
 
 ```ts
 interface User {
   id: string
-  // 将 role 的类型设置包含 null
   role: string | null
 }
 
+// 正确：使用 ['setNull'] 将字段置空
 await manager.partialUpdate(tableUser, {
   id: '001',
-  // 等同于 role:['setNull']
-  role: null
+  role: ['setNull']
+})
+
+// 错误：0.7.0 版本开始，null 会被忽略，不会更新字段
+await manager.partialUpdate(tableUser, {
+  id: '001',
+  role: null  // 此操作不会生效
 })
 ```
 

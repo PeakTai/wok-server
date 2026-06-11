@@ -6,6 +6,37 @@ import { MysqlConfig } from '../../config'
 import { processColumnValue } from './utils'
 
 /**
+ * 插入值类型，支持在 INSERT VALUES 中使用表达式
+ */
+export type InsertValue<T> = {
+  [K in keyof T]?:
+    | T[K]
+    | ['now']
+    | ['set', T[K]]
+    | ['expr', string]
+    | ['expr', string, any[]]
+}
+
+/**
+ * 处理 insert value，支持表达式
+ * @returns { frag: SQL 片段, values: 参数值数组 }
+ */
+export function processInsertValue(value: any): { frag: string; values: any[] } {
+  if (Array.isArray(value)) {
+    if (value[0] === 'now') {
+      return { frag: 'NOW()', values: [] }
+    }
+    if (value[0] === 'set') {
+      return { frag: '?', values: [processColumnValue(value[1])] }
+    }
+    if (value[0] === 'expr') {
+      return { frag: value[1], values: value[2] || [] }
+    }
+  }
+  return { frag: '?', values: [processColumnValue(value)] }
+}
+
+/**
  * 为表插入数据
  * @param connection
  * @param table
@@ -16,9 +47,8 @@ export async function insert<T>(
   config: MysqlConfig,
   connection: PoolConnection,
   table: Table<T>,
-  data: T
+  data: InsertValue<T>
 ): Promise<T> {
-  // 插入后的新数据
   // 列信息，使用 set 防止 columns 中重复配置 id 和更新创建时间列
   let columnsSet: Set<keyof T> = new Set()
   // 判定下 id ，如果有值，才在 insert 语句中出现 id 列，否则不出现
@@ -37,15 +67,16 @@ export async function insert<T>(
     columnsSet.add(table.updatedDate.column)
   }
   const columns = Array.from(columnsSet)
-  // 构建 sql
-  const sql = `insert into ??(${columns.map(() => '??').join(',')}) values(${columns
-    .map(() => '?')
-    .join(',')})`
-  const values: any[] = [
-    table.tableName,
-    ...columns,
-    ...columns.map(col => processColumnValue(data[col]))
-  ]
+  // 构建 sql，逐列处理以支持表达式
+  const fragList: string[] = []
+  const insertValues: any[] = []
+  for (const col of columns) {
+    const { frag, values: vs } = processInsertValue(data[col])
+    fragList.push(frag)
+    insertValues.push(...vs)
+  }
+  const sql = `insert into ??(${columns.map(() => '??').join(',')}) values(${fragList.join(',')})`
+  const values: any[] = [table.tableName, ...columns, ...insertValues]
   const res = await promiseQuery(config, connection, sql, values)
   const packet = res as ResultSetHeader
   if (packet.affectedRows !== 1) {
@@ -57,7 +88,7 @@ export async function insert<T>(
   if (packet.insertId && (data[table.id] === undefined || data[table.id] === null)) {
     data[table.id] = packet.insertId as any
   }
-  return data
+  return data as unknown as T
 }
 /**
  * 一次插入多条记录
@@ -69,7 +100,7 @@ export async function insertMany<T>(
   config: MysqlConfig,
   connection: PoolConnection,
   table: Table<T>,
-  list: T[]
+  list: InsertValue<T>[]
 ): Promise<void> {
   if (!list.length) {
     return
@@ -99,14 +130,21 @@ export async function insertMany<T>(
     if (idx > 0) {
       sql += ','
     }
-    sql += `(${columns.map(() => '?').join(',')})`
+    const fragList: string[] = []
+    const rowValues: any[] = []
     if (table.createdDate) {
       data[table.createdDate.column] = createdData as any
     }
     if (table.updatedDate) {
       data[table.updatedDate.column] = updatedDate as any
     }
-    values.push(...columns.map(col => processColumnValue(data[col])))
+    for (const col of columns) {
+      const { frag, values: vs } = processInsertValue(data[col])
+      fragList.push(frag)
+      rowValues.push(...vs)
+    }
+    sql += `(${fragList.join(',')})`
+    values.push(...rowValues)
   })
 
   const res = await promiseQuery(config, connection, sql, values)

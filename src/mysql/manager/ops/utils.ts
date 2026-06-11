@@ -3,6 +3,10 @@
  * @param value
  */
 export function processColumnValue(value: any) {
+  // undefined/null 返回 null，mysql2 会正确处理为 SQL NULL
+  if (value === undefined || value === null) {
+    return null
+  }
   // date 类型 typeof 也是 object ，先排除
   if (value instanceof Date) {
     return value

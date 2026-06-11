@@ -3,6 +3,7 @@ import { Table } from '../../table-info'
 import { MixCriteria, buildQuery } from './criteria'
 import { promiseQuery } from '../utils'
 import { MysqlConfig } from '../../config'
+import { OrderBy, buildOrderBy } from './order-by'
 
 /**
  * 按 id 查询
@@ -67,7 +68,7 @@ export interface FindOpts<T> {
   /**
    * 排序规则，按先后顺序放入，每个规则是一个元组，第一个元素是字段名称，第二个元素是顺序
    */
-  orderBy?: Array<[keyof T, 'asc' | 'desc']>
+  orderBy?: OrderBy<T>
 }
 /**
  * 条件查询
@@ -89,15 +90,9 @@ export async function find<T>(
   }
   // 排序
   if (opts.orderBy && opts.orderBy.length) {
-    opts.orderBy.forEach((orderBy, idx) => {
-      const [field, sort] = orderBy
-      if (idx == 0) {
-        sql += ` order by ?? ${sort} `
-      } else {
-        sql += ` , ?? ${sort} `
-      }
-      values.push(field)
-    })
+    const ob = buildOrderBy(opts.orderBy)
+    sql += ob.sql
+    values.push(...ob.values)
   }
   // 数量限制
   if (opts.limit) {
@@ -141,15 +136,9 @@ export async function findSelect<T, K extends keyof T>(
   }
   // 排序
   if (opts.orderBy && opts.orderBy.length) {
-    opts.orderBy.forEach((orderBy, idx) => {
-      const [field, sort] = orderBy
-      if (idx == 0) {
-        sql += ` order by ?? ${sort} `
-      } else {
-        sql += ` , ?? ${sort} `
-      }
-      values.push(field)
-    })
+    const ob = buildOrderBy(opts.orderBy)
+    sql += ob.sql
+    values.push(...ob.values)
   }
   // 数量限制
   if (opts.limit) {
@@ -198,7 +187,7 @@ export async function findFirst<T>(
   /**
    * 排序规则，按先后顺序放入，每个规则是一个元组，第一个元素是字段名称，第二个元素是顺序
    */
-  orderBy?: Array<[keyof T, 'asc' | 'desc']>
+  orderBy?: OrderBy<T>
 ): Promise<T | null> {
   let query = criteria ? buildQuery(criteria) : undefined
   let sql = `select * from ?? `
@@ -209,15 +198,9 @@ export async function findFirst<T>(
   }
   // 排序
   if (orderBy && orderBy.length) {
-    orderBy.forEach((orderBy, idx) => {
-      const [field, sort] = orderBy
-      if (idx == 0) {
-        sql += ` order by ?? ${sort} `
-      } else {
-        sql += ` , ?? ${sort} `
-      }
-      values.push(field)
-    })
+    const ob = buildOrderBy(orderBy)
+    sql += ob.sql
+    values.push(...ob.values)
   }
   sql += ' limit 1'
   const res = await promiseQuery(config, conn, sql, values)

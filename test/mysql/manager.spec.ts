@@ -97,7 +97,7 @@ describe('mysql 组件测试', () => {
 
       const dbVersion = await manager.findFirst(tableDbVersion)
       ok(dbVersion)
-      equal(dbVersion.version, 3)
+      equal(dbVersion.version, 4)
     })
   )
   it(
@@ -391,7 +391,62 @@ describe('mysql 组件测试', () => {
       ok(b4.id)
       ok(typeof b4.id === 'number')
 
-      console.log('插入的id', [b1.id, b2.id, b3.id, b4.id])
+    })
+  )
+  it(
+    'InsertValue [expr] 和 [now] 测试',
+    runTestAsync(async () => {
+      const manager = getMysqlManager()
+      // insert 中使用 ['now'] 设置 last_login_at
+      let user = await manager.insert<User>(tableUser, {
+        id: 'iv001',
+        nickname: 'iv-now',
+        balance: 0,
+        active: true,
+        last_login_at: ['now']
+      })
+      ok(user)
+      equal(user.id, 'iv001')
+
+      let db = await manager.findById(tableUser, 'iv001')
+      ok(db)
+      ok(db.last_login_at)
+
+      // insert 中使用 ['expr', '? + ?', [40, 2]] 计算 balance
+      user = await manager.insert<User>(tableUser, {
+        id: 'iv002',
+        nickname: 'iv-expr',
+        balance: ['expr', '? + ?', [40, 2]],
+        active: true
+      })
+      ok(user)
+
+      db = await manager.findById(tableUser, 'iv002')
+      ok(db)
+      equal(db.balance, 42)
+
+      // upsert 中使用 ['expr'] 插入
+      await manager.upsert<User>(tableUser, {
+        id: 'iv003',
+        nickname: 'iv-upsert',
+        balance: ['expr', '? * ?', [6, 7]],
+        active: true
+      })
+      db = await manager.findById(tableUser, 'iv003')
+      ok(db)
+      equal(db.balance, 42)
+
+      // upsert 冲突时使用 ['expr'] 更新
+      await manager.upsert<User>(tableUser, {
+        id: 'iv003',
+        nickname: 'iv-upsert-2',
+        balance: ['expr', '? + ?', [10, 20]],
+        active: false
+      })
+      db = await manager.findById(tableUser, 'iv003')
+      ok(db)
+      equal(db.balance, 30)
+      equal(db.nickname, 'iv-upsert-2')
     })
   )
   it(
@@ -438,7 +493,7 @@ describe('mysql 组件测试', () => {
         fail('更新不存在的记录没有报错')
       } catch (e) {
         ok(e instanceof MysqlException)
-        console.log(e.message)
+        console.error(e.message)
       }
     })
   )
@@ -701,7 +756,7 @@ describe('mysql 组件测试', () => {
         limit: 10,
         orderBy: [['balance', 'asc']]
       })
-      console.log(list)
+      
       equal(list.length, 4)
       const [u1, u2, u3, u4] = list
       equal(u1.nickname, 'find-select-3')
@@ -892,7 +947,7 @@ describe('mysql 组件测试', () => {
         fail('事务应该失败，抛出异常，但是并没有')
       } catch (e) {
         ok(e instanceof Error)
-        console.log(e.message)
+        console.error(e.message)
       }
       // 验证数据没有操作成功
       ok(!(await manager.existsById(tableUser, 'tx002')))
@@ -1175,6 +1230,365 @@ describe('mysql 组件测试', () => {
       equal(q8.options[0].title, '加拿大')
       equal(q8.options[1].title, '塞尔维亚')
       ok(q8.options[1].correct)
+    })
+  )
+  it(
+    'upsert 测试',
+    runTestAsync(async () => {
+      const manager = getMysqlManager()
+      // 测试插入新记录
+      let user = await manager.upsert<User>(tableUser, {
+        id: 'ups001',
+        nickname: 'upsert-test',
+        balance: 100,
+        active: true
+      })
+      ok(user)
+      equal(user.id, 'ups001')
+      equal(user.nickname, 'upsert-test')
+      equal(user.balance, 100)
+      ok(user.create_at)
+      ok(user.update_at)
+
+      // 测试更新已存在的记录
+      await sleep(100)
+      user = await manager.upsert<User>(tableUser, {
+        id: 'ups001',
+        nickname: 'upsert-updated',
+        balance: 200,
+        active: false
+      })
+      ok(user)
+      equal(user.id, 'ups001')
+      equal(user.nickname, 'upsert-updated')
+      equal(user.balance, 200)
+      ok(!user.active)
+
+      // 验证数据库中的数据
+      const dbUser = await manager.findById(tableUser, 'ups001')
+      ok(dbUser)
+      equal(dbUser.nickname, 'upsert-updated')
+      equal(dbUser.balance, 200)
+      ok(!dbUser.active)
+    })
+  )
+  it(
+    'upsertMany 测试',
+    runTestAsync(async () => {
+      const manager = getMysqlManager()
+      // 测试批量插入新记录
+      const count1 = await manager.upsertMany(tableUser, [
+        { id: 'upsm001', nickname: 'batch-1', balance: 10, active: true },
+        { id: 'upsm002', nickname: 'batch-2', balance: 20, active: true },
+        { id: 'upsm003', nickname: 'batch-3', balance: 30, active: true }
+      ])
+      ok(count1 > 0)
+
+      // 验证插入的数据
+      const u1 = await manager.findById(tableUser, 'upsm001')
+      ok(u1)
+      equal(u1.nickname, 'batch-1')
+      equal(u1.balance, 10)
+
+      // 测试批量更新已存在的记录
+      await sleep(100)
+      const count2 = await manager.upsertMany(tableUser, [
+        { id: 'upsm001', nickname: 'batch-1-update', balance: 100, active: false },
+        { id: 'upsm002', nickname: 'batch-2-update', balance: 200, active: false },
+        { id: 'upsm004', nickname: 'batch-4-new', balance: 40, active: true }
+      ])
+      ok(count2 > 0)
+
+      // 验证更新和新增的数据
+      const u1Updated = await manager.findById(tableUser, 'upsm001')
+      ok(u1Updated)
+      equal(u1Updated.nickname, 'batch-1-update')
+      equal(u1Updated.balance, 100)
+      ok(!u1Updated.active)
+
+      const u4 = await manager.findById(tableUser, 'upsm004')
+      ok(u4)
+      equal(u4.nickname, 'batch-4-new')
+      equal(u4.balance, 40)
+    })
+  )
+  it(
+    'paginateSelect 测试',
+    runTestAsync(async () => {
+      const manager = getMysqlManager()
+      await Promise.all([
+        manager.insert(tableUser, { id: 'pgs001', nickname: 'ps-1', balance: 100, active: true }),
+        manager.insert(tableUser, { id: 'pgs002', nickname: 'ps-2', balance: 200, active: true }),
+        manager.insert(tableUser, { id: 'pgs003', nickname: 'ps-3', balance: 300, active: true }),
+        manager.insert(tableUser, { id: 'pgs004', nickname: 'ps-4', balance: 400, active: true }),
+        manager.insert(tableUser, { id: 'pgs005', nickname: 'ps-5', balance: 500, active: true }),
+        manager.insert(tableUser, { id: 'pgs006', nickname: 'ps-6', balance: 600, active: true }),
+        manager.insert(tableUser, { id: 'pgs007', nickname: 'ps-7', balance: 700, active: true }),
+        manager.insert(tableUser, { id: 'pgs008', nickname: 'ps-8', balance: 800, active: true })
+      ])
+
+      const page = await manager.paginateSelect({
+        table: tableUser,
+        select: ['nickname', 'balance'],
+        criteria: c => c.like('id', 'pgs%'),
+        pn: 1,
+        pz: 3,
+        orderBy: [['balance', 'asc']]
+      })
+
+      equal(page.total, 8)
+      equal(page.list.length, 3)
+
+      const [u1, u2, u3] = page.list
+      equal(u1.nickname, 'ps-1')
+      equal(u1.balance, 100)
+      equal(u2.nickname, 'ps-2')
+      equal(u2.balance, 200)
+      equal(u3.nickname, 'ps-3')
+      equal(u3.balance, 300)
+
+      // 验证返回的对象只包含指定的字段
+      equal(Object.keys(u1).length, 2)
+      ok(Object.keys(u1).includes('nickname'))
+      ok(Object.keys(u1).includes('balance'))
+      ok(!Object.keys(u1).includes('id'))
+      ok(!Object.keys(u1).includes('active'))
+    })
+  )
+  it(
+    'Updater [now] 测试',
+    runTestAsync(async () => {
+      const manager = getMysqlManager()
+      await manager.insert(tableUser, { id: 'nw000', nickname: 'now-test', balance: 0, active: true })
+      const before = new Date()
+      // 必须等待超过 1s，因为 last_login_at 字段是精确到秒的
+      await sleep(1500)
+      const res = await manager.partialUpdate(tableUser, {
+        id: 'nw000',
+        last_login_at: ['now']
+      })
+      ok(res)
+      const user = await manager.findById(tableUser, 'nw000')
+      ok(user)
+      ok(user.last_login_at)
+      // last_login_at 应该在 sleep 之后
+      ok(user.last_login_at! > before)
+    })
+  )
+  it(
+    'Updater [inc] 默认+1 测试',
+    runTestAsync(async () => {
+      const manager = getMysqlManager()
+      await manager.insert(tableUser, { id: 'ic000', nickname: 'inc-test', balance: 100, active: true })
+
+      // 默认 +1
+      const res = await manager.partialUpdate(tableUser, {
+        id: 'ic000',
+        balance: ['inc']
+      })
+      ok(res)
+      const user = await manager.findById(tableUser, 'ic000')
+      ok(user)
+      equal(user.balance, 101)
+
+      // 指定值仍然可用
+      await manager.partialUpdate(tableUser, {
+        id: 'ic000',
+        balance: ['inc', 20]
+      })
+      const user2 = await manager.findById(tableUser, 'ic000')
+      ok(user2)
+      equal(user2.balance, 121)
+    })
+  )
+  it(
+    'Updater [concat] 测试',
+    runTestAsync(async () => {
+      const manager = getMysqlManager()
+      await manager.insert(tableQuestion, {
+        id: 'cc000',
+        title: 'hello',
+        options: [],
+        question_setter: { id: '1', name: 'setter' }
+      })
+
+      // 普通拼接
+      await manager.partialUpdate(tableQuestion, {
+        id: 'cc000',
+        title: ['concat', ' world']
+      })
+      const q1 = await manager.findById(tableQuestion, 'cc000')
+      ok(q1)
+      equal(q1.title, 'hello world')
+
+      // 多次拼接
+      await manager.partialUpdate(tableQuestion, {
+        id: 'cc000',
+        title: ['concat', '!']
+      })
+      const q2 = await manager.findById(tableQuestion, 'cc000')
+      ok(q2)
+      equal(q2.title, 'hello world!')
+    })
+  )
+  it(
+    'Updater [expr] 测试',
+    runTestAsync(async () => {
+      const manager = getMysqlManager()
+      await manager.insert(tableUser, { id: 'ex000', nickname: 'expr-test', balance: 10, active: true })
+
+      // ['expr', '? + ?', [3, 4]] 生成 balance = 3 + 4
+      const res = await manager.partialUpdate(tableUser, {
+        id: 'ex000',
+        balance: ['expr', '? + ?', [3, 4]]
+      })
+      ok(res)
+      const user = await manager.findById(tableUser, 'ex000')
+      ok(user)
+      equal(user.balance, 7)
+    })
+  )
+  it(
+    'upsertWithUpdater 测试',
+    runTestAsync(async () => {
+      const manager = getMysqlManager()
+      // 第一次：记录不存在，执行 insert
+      let result = await manager.upsertWithUpdater(
+        tableUser,
+        { id: 'uwu001', nickname: 'wu-user', balance: 10, active: true },
+        { balance: ['inc'] }
+      )
+      ok(result)
+      equal(result.id, 'uwu001')
+      equal(result.nickname, 'wu-user')
+      equal(result.balance, 10)
+
+      let db = await manager.findById(tableUser, 'uwu001')
+      ok(db)
+      equal(db.balance, 10)
+      ok(db.create_at)
+      ok(db.update_at)
+
+      // 第二次：记录已存在，执行 ON DUPLICATE KEY UPDATE
+      await sleep(100)
+      result = await manager.upsertWithUpdater(
+        tableUser,
+        { id: 'uwu001', nickname: 'wu-user', balance: 5, active: false },
+        { balance: ['inc'], nickname: 'wu-updated' }
+      )
+      ok(result)
+
+      db = await manager.findById(tableUser, 'uwu001')
+      ok(db)
+      // updater 中 balance 是 ['inc']，默认 +1，10 + 1 = 11
+      equal(db.balance, 11)
+      // updater 中 nickname 被直接赋值
+      equal(db.nickname, 'wu-updated')
+      // data 中 active: false 会作为 insert 的默认值，冲突时由 updater 决定，这里未指定 active，保持不变
+      ok(db.active)
+      // updatedDate 应该被更新
+      ok(db.update_at)
+
+      // 第三次：验证 ['now'] 在 upsert 场景
+      result = await manager.upsertWithUpdater(
+        tableUser,
+        { id: 'uwu001', nickname: 'wu-user', balance: 0, active: true },
+        { last_login_at: ['now'] }
+      )
+      ok(result)
+      db = await manager.findById(tableUser, 'uwu001')
+      ok(db)
+      ok(db.last_login_at)
+      // balance/nickname 未在 updater 中指定，保持原值
+      equal(db.balance, 11)
+      equal(db.nickname, 'wu-updated')
+    })
+  )
+  it(
+    'Criteria expr 测试',
+    runTestAsync(async () => {
+      const manager = getMysqlManager()
+      await Promise.all([
+        manager.insert(tableUser, { id: 'critex001', nickname: 'critex-A', balance: 30, active: true }),
+        manager.insert(tableUser, { id: 'critex002', nickname: 'critex-B', balance: 60, active: true }),
+        manager.insert(tableUser, { id: 'critex003', nickname: 'critex-C', balance: 20, active: true })
+      ])
+
+      // expr('?? * ? > ?') — balance * 2 > 50，应匹配 critex-A(30*2=60) 和 critex-B(60*2=120)
+      const list1 = await manager.find({
+        table: tableUser,
+        criteria: c => c.like('id', 'critex%').expr('?? * ? > ?', ['balance', 2, 50]),
+        orderBy: [['balance', 'asc']]
+      })
+      equal(list1.length, 2)
+      equal(list1[0].id, 'critex001')
+      equal(list1[1].id, 'critex002')
+
+      // expr + 普通条件组合
+      const list2 = await manager.find({
+        table: tableUser,
+        criteria: c => c.like('id', 'critex%').eq('active', true).expr('?? > ?', ['balance', 25]),
+        orderBy: [['balance', 'asc']]
+      })
+      equal(list2.length, 2)
+      equal(list2[0].id, 'critex001')
+      equal(list2[1].id, 'critex002')
+    })
+  )
+  it(
+    'OrderBy expr 排序测试',
+    runTestAsync(async () => {
+      const manager = getMysqlManager()
+      await Promise.all([
+        manager.insert(tableBook, { name: 'ob', author_id: 'a1' }),
+        manager.insert(tableBook, { name: 'ob-long', author_id: 'b1' }),
+        manager.insert(tableBook, { name: 'ob-longer', author_id: 'c1' })
+      ])
+
+      // 普通列排序
+      const list1 = await manager.find({
+        table: tableBook,
+        criteria: c => c.like('name', 'ob%'),
+        orderBy: [['id', 'asc']]
+      })
+      equal(list1.length, 3)
+      equal(list1[0].name, 'ob')
+      equal(list1[1].name, 'ob-long')
+      equal(list1[2].name, 'ob-longer')
+
+      // ['expr', '?? * ?', [...], 'asc'] — id * -1 asc，最负的排最前，即按 id 倒序
+      const list2 = await manager.find({
+        table: tableBook,
+        criteria: c => c.like('name', 'ob%'),
+        orderBy: [['expr', '?? * ?', ['id', -1], 'asc']]
+      })
+      equal(list2.length, 3)
+      equal(list2[0].name, 'ob-longer')
+      equal(list2[1].name, 'ob-long')
+      equal(list2[2].name, 'ob')
+
+      // 按名称长度排序：ob(2) < ob-long(7) < ob-longer(9)
+      const list3 = await manager.find({
+        table: tableBook,
+        criteria: c => c.like('name', 'ob%'),
+        orderBy: [['expr', 'CHAR_LENGTH(??)', ['name'], 'desc']]
+      })
+      equal(list3.length, 3)
+      equal(list3[0].name, 'ob-longer')
+      equal(list3[1].name, 'ob-long')
+      equal(list3[2].name, 'ob')
+
+      // 混合：普通列 + expr
+      const list4 = await manager.find({
+        table: tableBook,
+        criteria: c => c.like('name', 'ob%'),
+        orderBy: [
+          ['expr', '?? * ?', ['id', -1], 'asc'],
+          ['name', 'desc']
+        ]
+      })
+      equal(list4.length, 3)
+      equal(list4[0].name, 'ob-longer')
     })
   )
 })

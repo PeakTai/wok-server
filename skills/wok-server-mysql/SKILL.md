@@ -139,7 +139,14 @@ const user = await manager.findFirst(tableUser, c =>
 )
 ```
 
-**链式条件方法**：`eq`、`neq`、`gt`、`gte`、`lt`、`lte`、`like`、`notLike`、`between`、`in`、`notIn`、`isNull`、`isNotNull`、`or`、`and`。
+**链式条件方法**：`eq`、`neq`、`gt`、`gte`、`lt`、`lte`、`like`、`notLike`、`between`、`in`、`notIn`、`isNull`、`isNotNull`、`or`、`and`、`expr`。
+
+`expr()` 方法支持在 WHERE 子句中插入自定义 SQL 表达式：
+
+```ts
+c => c.like('id', 'critex%').expr('?? * ? > ?', ['balance', 2, 50])
+// SQL: where `id` like 'critex%' and `balance` * 2 > 50
+```
 
 ### 复杂查询
 
@@ -151,6 +158,14 @@ const list = await manager.find({
   limit: 10,
   orderBy: [['balance', 'asc']]
 })
+
+// 自定义排序表达式
+const list2 = await manager.find({
+  table: tableUser,
+  criteria: c => c.like('nickname', 'ob%'),
+  orderBy: [['expr', '?? * ?', ['balance', 2], 'desc']]
+})
+// SQL: ORDER BY `balance` * 2 desc
 ```
 
 ### 分页
@@ -163,6 +178,15 @@ const page = await manager.paginate({
   orderBy: [['balance', 'asc'], ['id', 'asc']]
 })
 // { total: number, list: T[] }
+
+// 指定字段分页查询
+const page2 = await manager.paginateSelect({
+  table: tableUser,
+  criteria: c => c.like('id', 'pg0%'),
+  select: ['id', 'nickname', 'balance'],
+  pn: 2, pz: 5
+})
+// { total: number, list: Pick<T, 'id'|'nickname'|'balance'>[] }
 ```
 
 ### 插入
@@ -173,6 +197,36 @@ await manager.insertMany(tableUser, [
   { id: 'im001', nickname: '张飞' },
   { id: 'im002', nickname: '关羽' }
 ])
+
+// 插入时使用表达式（InsertValue）
+await manager.insert(tableUser, {
+  id: 'in002',
+  nickname: '小红',
+  balance: ['expr', '?? * ?', ['score', 2]],
+  createAt: ['now']
+})
+```
+
+支持三种表达式：`['now']`（NOW()）、`['set', value]`（解决元组冲突）、`['expr', sql, values?]`（自定义 SQL）。
+
+### Upsert
+
+```ts
+// 单条 upsert，主键冲突则更新
+await manager.upsert(tableUser, { id: 'us001', nickname: '赵云', balance: 10 })
+
+// 批量 upsert
+await manager.upsertMany(tableUser, [
+  { id: 'us002', nickname: '马超', balance: 20 },
+  { id: 'us003', nickname: '黄忠', balance: 30 }
+])
+
+// 冲突时自定义更新（使用 Updater）
+await manager.upsertWithUpdater(
+  tableUser,
+  { id: 'us001', nickname: '赵云', balance: 10 },
+  { balance: ['inc', 5], nickname: '赵云-updated' }
+)
 ```
 
 ### 更新
@@ -181,12 +235,27 @@ await manager.insertMany(tableUser, [
 // 完整更新（需要完整文档）
 await manager.update(tableUser, { id: 'xxx', nickname: '王五' })
 
-// 局部更新（使用元组语法：['inc', 22] 表示 +22，[null] 表示置空）
-await manager.partialUpdate(tableUser, { id: 'pu000', balance: ['inc', 22] })
+// 局部更新
+await manager.partialUpdate(tableUser, {
+  id: 'pu000',
+  // 自增 +22
+  balance: ['inc', 22],
+  // 自增 +1（默认值）
+  visits: ['inc'],
+  // NULL 安全的字符串追加
+  nickname: ['concat', '-suffix'],
+  // 设置为 NOW()
+  last_login_at: ['now'],
+  // 自定义表达式
+  score: ['expr', '?? * ?', ['score', 2]]
+})
 
 // 批量更新
 await manager.updateMany(tableUser, c => c.like('nickname', 'um%'), { balance: ['inc', 2] })
 ```
+
+> **0.7.0 版本**开始，`null` 不再自动置 NULL。如需将字段设置为 NULL，必须显式使用 `['setNull']`。
+> `['func']` 已移除，请使用 `['expr']` 替代（如 `['func', 'NOW()']` → `['expr', 'NOW()']`）。
 
 ### 删除
 
@@ -225,8 +294,12 @@ const affected = await manager.modify(`update user set nickname='无名' where n
 | `existsById`   | id 判断存在                  |      |
 | `count`        | 统计数量                     | ⚠️   |
 | `paginate`     | 分页查询                     | ⚠️   |
+| `paginateSelect` | 指定字段分页查询            | ⚠️   |
 | `insert`       | 插入单条                     |      |
 | `insertMany`   | 批量插入                     |      |
+| `upsert`       | 插入单条，主键冲突则更新     |      |
+| `upsertMany`   | 批量 upsert                  |      |
+| `upsertWithUpdater` | upsert 单条，冲突时自定义更新 |  |
 | `update`       | 完整更新                     |      |
 | `partialUpdate`| 局部更新                     |      |
 | `updateOne`    | 更新第一条相等条件           |      |

@@ -57,7 +57,7 @@ export interface MysqlConfig {
    */
   maxIdle: number
   /**
-   * 闲置的超时时间，也即多久不用算闲置，单位毫秒
+   * 闲置的超时时间，当一个数据库连接不再被业务使用、处于闲置状态的时间超过这个阈值，连接池就会自动回收并关闭这个连接，释放资源。
    */
   idleTimeout: number
   /**
@@ -123,7 +123,7 @@ export const configValidation: ValidationOpts<MysqlConfig> = {
   maxIdle: [notNull(), min(1), max(999)],
   idleTimeout: [notNull(), min(1000), max(60000)],
   slowSqlWarn: [notNull()],
-  slowSqlMs: [notNull(), min(1), max(3600000)],
+  slowSqlMs: [notNull(), min(0), max(3600000)],
   transactionTimeout: [notNull(), min(0), max(60000)],
   transactionStrict: [notNull()],
   maxOpsInStrictTx: [notNull(), min(1)]

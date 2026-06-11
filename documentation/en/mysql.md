@@ -227,12 +227,32 @@ await manager.insert(tableUser, {
   nickname: '小明',
   balance: 1
 })
+// Insert with expressions
+await manager.insert(tableUser, {
+  id: 'in002',
+  nickname: '小红',
+  balance: ['expr', '?? * ?', ['score', 2]],
+  createAt: ['now']
+})
 // Batch insert
 await manager.insertMany(tableUser, [
   { id: 'im001', nickname: '张飞', balance: 0 },
   { id: 'im002', nickname: '关羽', balance: 2 },
   { id: 'im003', nickname: '刘备', balance: 5 }
 ])
+// Upsert single record, update on conflict
+await manager.upsert(tableUser, { id: 'us001', nickname: '赵云', balance: 10 })
+// Batch upsert
+await manager.upsertMany(tableUser, [
+  { id: 'us002', nickname: '马超', balance: 20 },
+  { id: 'us003', nickname: '黄忠', balance: 30 }
+])
+// Upsert with custom updater (e.g., increment balance on conflict)
+await manager.upsertWithUpdater(
+  tableUser,
+  { id: 'us001', nickname: '赵云', balance: 10 },
+  { balance: ['inc', 5], nickname: '赵云-updated' }
+)
 // Query first matching record by condition
 const user = await manager.findFirst(tableUser, c =>
   c.like('nickname', 'ff0%').gt('balance', 75).lt('balance', 77)
@@ -251,6 +271,18 @@ await manager.find({
   criteria: c => c.between('balance', 700, 800).like('id', 'find%'),
   offset: 1,
   limit: 10,
+  orderBy: [['balance', 'asc']]
+})
+// Custom order by expression: balance * 2 desc
+await manager.find({
+  table: tableUser,
+  criteria: c => c.like('nickname', 'ff0%'),
+  orderBy: [['expr', '?? * ?', ['balance', 2], 'desc']]
+})
+// Custom criteria expression: balance * 2 > 50
+await manager.find({
+  table: tableUser,
+  criteria: c => c.like('id', 'critex%').expr('?? * ? > ?', ['balance', 2, 50]),
   orderBy: [['balance', 'asc']]
 })
 // Count matching records
@@ -295,6 +327,9 @@ await manager.modify(`update user set nickname='无名' where nickname='佚名'`
 | findFirst       | Query first matching record                                                 |
 | insert          | Insert record                                                               |
 | insertMany      | Insert multiple records at once                                             |
+| upsert          | Insert record, update on duplicate key                                      |
+| upsertMany      | Batch upsert                                                                |
+| upsertWithUpdater | Upsert single record with custom updater for conflicts                      |
 | update          | Update record, requires complete information                                 |
 | partialUpdate   | Partial update, only provide id and fields to update                        |
 | updateOne       | Update only first matching record, only supports equality conditions        |
@@ -303,8 +338,87 @@ await manager.modify(`update user set nickname='无名' where nickname='佚名'`
 | findSelect      | Conditional query with specified fields. Same as find but with select param |
 | count           | Count matching records. Dangerous operation, use strict conditions          |
 | paginate        | Paginated query. Dangerous operation, based on find and count               |
+| paginateSelect  | Paginated query with specified fields, based on findSelect and count        |
 | query           | Custom SQL query, returns record list, supports prepared statements         |
 | modify          | Execute custom SQL, returns affected rows, supports prepared statements     |
+
+### Insert Expressions
+
+Starting from version 0.7.0, `insert`, `insertMany`, `upsert` and other insert methods accept `InsertValue` type,
+allowing expressions in the VALUES clause:
+
+```ts
+await manager.insert(tableUser, {
+  id: 'in001',
+  nickname: '小明',
+  // Set to NOW()
+  createAt: ['now'],
+  // Resolve conflict: set field to the array ['setNull'] (not the setNull operation)
+  extra: ['set', ['setNull']],
+  // Custom expression: balance = score * 2
+  balance: ['expr', '?? * ?', ['score', 2]],
+  // Expression without parameters
+  balance2: ['expr', 'RAND() * 100']
+})
+```
+
+### Order By Expressions
+
+Starting from version 0.7.0, the `orderBy` parameter is upgraded to `OrderBy<T>` type, supporting custom
+expression-based ordering in addition to regular column ordering. This type is backward-compatible.
+
+```ts
+await manager.find({
+  table: tableUser,
+  criteria: c => c.like('nickname', 'ob%'),
+  // Regular column ordering (backward-compatible)
+  orderBy: [['balance', 'asc']]
+})
+
+// Custom expression ordering: balance * 2 desc
+// SQL: ORDER BY `balance` * 2 desc
+await manager.find({
+  table: tableUser,
+  criteria: c => c.like('nickname', 'ob%'),
+  orderBy: [['expr', '?? * ?', ['balance', 2], 'desc']]
+})
+
+// Order by name length: CHAR_LENGTH(name) desc
+// SQL: ORDER BY CHAR_LENGTH(`name`) desc
+await manager.find({
+  table: tableBook,
+  criteria: c => c.like('name', 'ob%'),
+  orderBy: [['expr', 'CHAR_LENGTH(??)', ['name'], 'desc']]
+})
+
+// Mixed: regular column + expression
+orderBy: [
+  ['active', 'asc'],
+  ['expr', '?? * ?', ['balance', 2], 'desc']
+]
+// SQL: ORDER BY `active` asc , `balance` * 2 desc
+```
+
+### Criteria Expressions
+
+Starting from version 0.7.0, `MysqlCriteria` adds an `expr()` method for inserting custom SQL expressions
+in the WHERE clause:
+
+```ts
+// balance * 2 > 50
+// SQL: where ... and `balance` * 2 > 50
+await manager.find({
+  table: tableUser,
+  criteria: c => c.like('id', 'critex%').expr('?? * ? > ?', ['balance', 2, 50])
+})
+
+// Full-text search
+// SQL: where ... and MATCH(`title`, `content`) AGAINST (? IN BOOLEAN MODE)
+await manager.find({
+  table: tableBook,
+  criteria: c => c.expr('MATCH(??, ??) AGAINST(? IN BOOLEAN MODE)', ['title', 'content', keyword])
+})
+```
 
 ### JSON Type
 
@@ -427,24 +541,40 @@ The partialUpdate and updateMany methods support partial field modifications and
 await manager.updateMany(tableUser, c => c.between('balance', 23, 24), {
   // Increase balance by 2
   balance: ['inc', 2],
+  // Increase visits by 1 (default increment)
+  visits: ['inc'],
   // Set consume_type to null
-  consume_type: ['setNull']
+  consume_type: ['setNull'],
+  // Set to NOW()
+  last_login_at: ['now'],
+  // NULL-safe string concatenation: col = CONCAT(IFNULL(col, ''), ?)
+  nickname: ['concat', '-suffix'],
+  // Custom expression: score = score * 2
+  score: ['expr', '?? * ?', ['score', 2]]
 })
 ```
 
-Setting a field to null directly also works, but requires TypeScript type support:
+> **Note**: `['func']` has been removed in 0.7.0. Use `['expr']` instead.
+> E.g., `['func', 'NOW()']` → `['expr', 'NOW()']`.
+
+**Starting from version 0.7.0**, `null` is treated the same as `undefined` and will be ignored during updates. **To set a field to NULL, you must use `['setNull']`**.
 
 ```ts
 interface User {
   id: string
-  // Include null in role type
   role: string | null
 }
 
+// Correct: Use ['setNull'] to set field to NULL
 await manager.partialUpdate(tableUser, {
   id: '001',
-  // Equivalent to role: ['setNull']
-  role: null
+  role: ['setNull']
+})
+
+// Wrong: Starting from 0.7.0, null is ignored and won't update the field
+await manager.partialUpdate(tableUser, {
+  id: '001',
+  role: null  // This operation will not take effect
 })
 ```
 
