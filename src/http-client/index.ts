@@ -1,5 +1,5 @@
-import { IncomingHttpHeaders, request as requestHttp } from 'http'
-import { request as requestHttps } from 'https'
+import { IncomingHttpHeaders, request as requestHttp, Agent as HttpAgent } from 'http'
+import { request as requestHttps, Agent as HttpsAgent } from 'https'
 import { URL } from 'url'
 
 /**
@@ -34,6 +34,10 @@ export interface HttpRequestOpts {
    * 是否跟随重定向
    */
   followRedirect?: boolean
+  /**
+   * HTTP/HTTPS Agent，用于连接复用、代理等高级配置
+   */
+  agent?: HttpAgent | HttpsAgent
 }
 /**
  * 响应信息.
@@ -86,7 +90,8 @@ export function doRequest(opts: HttpRequestOpts): Promise<HttpResponseInfo> {
         method: opts.method,
         headers: opts.headers,
         timeout: opts.timeout && opts.timeout > 0 ? opts.timeout : 5000,
-        rejectUnauthorized: false
+        rejectUnauthorized: false,
+        agent: opts.agent
       },
       res => {
         const chunks: any[] = []
