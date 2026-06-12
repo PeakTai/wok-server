@@ -1,6 +1,5 @@
-import { IncomingHttpHeaders, request as requestHttp, Agent as HttpAgent } from 'http'
-import { request as requestHttps, Agent as HttpsAgent } from 'https'
-import { URL } from 'url'
+import { Agent as HttpAgent, IncomingHttpHeaders, request as requestHttp } from 'http'
+import { Agent as HttpsAgent, request as requestHttps } from 'https'
 
 /**
  * 请求选项.
@@ -141,7 +140,7 @@ export function doRequest(opts: HttpRequestOpts): Promise<HttpResponseInfo> {
  * @param opts
  */
 export async function postJson<T>(
-  opts: Pick<HttpRequestOpts, 'url' | 'query' | 'headers' | 'timeout'> & { body: any }
+  opts: Pick<HttpRequestOpts, 'url' | 'query' | 'headers' | 'timeout' | 'agent'> & { body: unknown }
 ): Promise<T> {
   const headers = Object.assign({}, opts.headers || {}, {
     'Content-Type': 'application/json; charset=utf-8'
@@ -153,7 +152,8 @@ export async function postJson<T>(
     timeout: opts.timeout,
     method: 'POST',
     body: JSON.stringify(opts.body),
-    followRedirect: false
+    followRedirect: false,
+    agent: opts.agent
   })
   if (res.status !== 200) {
     if (res.body.byteLength < 1024) {
@@ -178,7 +178,7 @@ export async function postJson<T>(
  * @param opts
  */
 export async function getJson<T>(
-  opts: Pick<HttpRequestOpts, 'url' | 'query' | 'headers' | 'timeout'>
+  opts: Pick<HttpRequestOpts, 'url' | 'query' | 'headers' | 'timeout' | 'agent'>
 ): Promise<T> {
   const res = await doRequest({
     url: opts.url,
@@ -186,7 +186,8 @@ export async function getJson<T>(
     headers: opts.headers,
     timeout: opts.timeout,
     method: 'GET',
-    followRedirect: true
+    followRedirect: true,
+    agent: opts.agent
   })
   if (res.status !== 200) {
     if (res.body.byteLength < 1024) {
