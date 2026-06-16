@@ -106,7 +106,6 @@ export const tableUser: Table<User> = {
 
 | JS 类型        | MySQL 字段类型                                                        |
 | :------------- | :------------------------------------------------------------------- |
-| `boolean`      | TINYINT                                                              |
 | `number`       | TINYINT, SMALLINT, INT, MEDIUMINT, YEAR, FLOAT, DOUBLE, BIGINT       |
 | `Date`         | TIMESTAMP, DATE, DATETIME                                             |
 | `Buffer`       | TINYBLOB, MEDIUMBLOB, LONGBLOB, BLOB, BINARY, VARBINARY, BIT         |
@@ -114,6 +113,21 @@ export const tableUser: Table<User> = {
 | `object`/`array` | JSON                                                                |
 
 实体字段类型必须与数据库列类型匹配对应的 JS 原生类型，否则查询结果会不正确。可空字段在实体中也定义为可选（`?`）。
+
+> **⚠️ `boolean` 类型安全警告**
+>
+> MySQL 的 `BOOLEAN` 实际是 `TINYINT(1)`，驱动返回 `0`/`1`（number），**不是** `true`/`false`。
+> 实体类中将字段声明为 `boolean` 会导致 `===` 全等比较出现 bug，且手写 SQL 查询同样存在此问题。
+>
+> 框架**不提供**类型自动映射。最安全的做法是使用 `0 | 1` 类型，与数据库真实返回值保持一致：
+>
+> ```ts
+> export interface User {
+>   is_active: 0 | 1  // 推荐
+> }
+> ```
+>
+> `0 | 1` 在条件判断中与 `boolean` 行为一致，仅在 `=== true/false` 时有差异。
 
 ---
 

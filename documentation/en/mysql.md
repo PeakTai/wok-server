@@ -154,12 +154,28 @@ The type mapping logic cannot be modified. Here is the mapping table:
 
 | JavaScript Type   | MySQL Field Type                                                          |
 | :---------------- | :------------------------------------------------------------------------ |
-| Boolean           | TINYINT                                                                   |
 | Number            | TINYINT, SMALLINT, INT, MEDIUMINT, YEAR, FLOAT, DOUBLE, BIGINT           |
 | Date              | TIMESTAMP, DATE, DATETIME                                                 |
 | Buffer            | TINYBLOB, MEDIUMBLOB, LONGBLOB, BLOB, BINARY, VARBINARY, BIT             |
 | String            | CHAR, VARCHAR, TINYTEXT, MEDIUMTEXT, LONGTEXT, TEXT, ENUM, SET, DECIMAL, TIME |
 | Object or Array   | JSON                                                                      |
+
+> **⚠️ Safety note about `boolean` type**
+>
+> MySQL's `BOOLEAN` is actually `TINYINT(1)`. The driver returns `0` or `1` (number type), **not** `true`/`false`. If you declare the field as `boolean` in your entity, comparing query results with `true`/`false` using `===` will produce bugs.
+>
+> The framework does **not** support automatic type mapping and never will. Even if it did, hand-written `query()` custom SQL would still return `0`/`1`, creating a persistent type mismatch between the application layer and the database — a risk that no framework can fully eliminate.
+>
+> **The safest approach** is to declare such fields as `0 | 1`, using the database's native return type directly:
+>
+> ```ts
+> export interface User {
+>   // Recommended: use 0 | 1, matching the database return value
+>   is_active: 0 | 1
+> }
+> ```
+>
+> `0 | 1` behaves almost identically to `boolean` in conditionals — `if (user.is_active)` and `user.is_active ? '是' : '否'` both work as expected. The only thing to avoid is `=== true` comparison. This way, the returned values are consistent across both CRUD methods and custom SQL — a one-time fix.
 
 For nullable fields, define them as nullable in TypeScript:
 

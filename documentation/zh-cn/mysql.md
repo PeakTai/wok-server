@@ -154,12 +154,28 @@ export const tableUser: Table<User> = {
 
 | js 原生类型     | mysql 字段类型                                                       |
 | :-------------- | :------------------------------------------------------------------- |
-| Boolean         | TINYINT                                                              |
 | Number          | TINYINT,SMALLINT,INT,MEDIUMINT,YEAR.FLOAT,DOUBLE,BIGINT              |
 | Date            | TIMESTAMP,DATE,DATETIME                                              |
 | Buffer          | TINYBLOB,MEDIUMBLOB,LONGBLOB,BLOB,BINARY,VARBINARY,BIT               |
 | String          | CHAR,VARCHAR,TINYTEXT,MEDIUMTEXT,LONGTEXT,TEXT,ENUM,SET,DECIMAL,TIME |
 | Object 或 Array | JSON                                                                 |
+
+> **⚠️ 关于 `boolean` 类型的安全提示**
+>
+> MySQL 中的 `BOOLEAN` 实际是 `TINYINT(1)`，驱动返回的是 `0` 或 `1`（number 类型），**不是 `true`/`false`**。如果你在实体类中将字段声明为 `boolean`，查询结果的值和 `true`/`false` 做 `===` 全等比较时就会产生 bug。
+>
+> 框架**不支持**类型自动映射，也不会提供。因为即使框架帮你做了映射，手写 `query()` 自定义 SQL 查出来的结果仍然是 `0`/`1`，始终存在应用层与数据库层之间的类型断裂，这是框架层面无法消除的安全隐患。
+>
+> **最安全的做法**是将这类字段的类型声明为 `0 | 1`，直接使用数据库返回的真实类型：
+>
+> ```ts
+> export interface User {
+>   // 推荐：使用 0 | 1，与数据库返回的真实值一致
+>   is_active: 0 | 1
+> }
+> ```
+>
+> `0 | 1` 在条件判断中的表现和 `boolean` 几乎一样——`if (user.is_active)`、`user.is_active ? '是' : '否'` 都能正常工作。唯一需要注意的就是避免 `=== true` 这种全等比较。这样无论是单表操作方法还是自定义 SQL，查出来的值始终一致，一劳永逸。
 
 对于可空字段，可以在 ts 里也定义为可空：
 
